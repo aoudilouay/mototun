@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\mototun.API.props" />
+</Project>

@@ -1,0 +1,41 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{0120EEB1-C812-49AC-8FA8-6006AC31D6B0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mototun.API", "src\mototun.API\mototun.API.csproj", "{26BADD74-BA34-4077-87B3-DC7B3919A2EF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mototun.Core", "src\mototun.Core\mototun.Core.csproj", "{24CF25E2-5912-4CC2-93ED-5FB35F1C6413}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "mototun.Infrastructure", "src\mototun.Infrastructure\mototun.Infrastructure.csproj", "{733F2FF7-5A0C-41FC-84A3-17955380CA3D}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{26BADD74-BA34-4077-87B3-DC7B3919A2EF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{26BADD74-BA34-4077-87B3-DC7B3919A2EF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{26BADD74-BA34-4077-87B3-DC7B3919A2EF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{26BADD74-BA34-4077-87B3-DC7B3919A2EF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{24CF25E2-5912-4CC2-93ED-5FB35F1C6413}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{24CF25E2-5912-4CC2-93ED-5FB35F1C6413}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{24CF25E2-5912-4CC2-93ED-5FB35F1C6413}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{24CF25E2-5912-4CC2-93ED-5FB35F1C6413}.Release|Any CPU.Build.0 = Release|Any CPU
+		{733F2FF7-5A0C-41FC-84A3-17955380CA3D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{733F2FF7-5A0C-41FC-84A3-17955380CA3D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{733F2FF7-5A0C-41FC-84A3-17955380CA3D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{733F2FF7-5A0C-41FC-84A3-17955380CA3D}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{26BADD74-BA34-4077-87B3-DC7B3919A2EF} = {0120EEB1-C812-49AC-8FA8-6006AC31D6B0}
+		{24CF25E2-5912-4CC2-93ED-5FB35F1C6413} = {0120EEB1-C812-49AC-8FA8-6006AC31D6B0}
+		{733F2FF7-5A0C-41FC-84A3-17955380CA3D} = {0120EEB1-C812-49AC-8FA8-6006AC31D6B0}
+	EndGlobalSection
+EndGlobal

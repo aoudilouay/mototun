@@ -1,0 +1,17 @@
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\bin\Debug\net8.0\mototun.Infrastructure.deps.json
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\bin\Debug\net8.0\mototun.Infrastructure.runtimeconfig.json
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\bin\Debug\net8.0\mototun.Infrastructure.dll
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\bin\Debug\net8.0\mototun.Infrastructure.pdb
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\bin\Debug\net8.0\mototun.Core.dll
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\bin\Debug\net8.0\mototun.Core.pdb
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\obj\Debug\net8.0\mototun.Infrastructure.csproj.AssemblyReference.cache
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\obj\Debug\net8.0\mototun.Infrastructure.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\obj\Debug\net8.0\mototun.Infrastructure.AssemblyInfoInputs.cache
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\obj\Debug\net8.0\mototun.Infrastructure.AssemblyInfo.cs
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\obj\Debug\net8.0\mototun.Infrastructure.csproj.CoreCompileInputs.cache
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\obj\Debug\net8.0\mototun..C0BA62A8.Up2Date
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\obj\Debug\net8.0\mototun.Infrastructure.dll
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\obj\Debug\net8.0\refint\mototun.Infrastructure.dll
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\obj\Debug\net8.0\mototun.Infrastructure.pdb
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\obj\Debug\net8.0\mototun.Infrastructure.genruntimeconfig.cache
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Infrastructure\obj\Debug\net8.0\ref\mototun.Infrastructure.dll
