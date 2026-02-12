@@ -7,10 +7,9 @@ using mototun.Infrastructure.Data;
 using System.Security.Claims;
 using mototun.Core.Enums;
 
-
 namespace mototun.API.Controllers
 {
-    [Authorize] // only authenticated users
+    [Authorize] // only authenticated users (revendeur/fournisseur logged in)
     [Route("api/[controller]")]
     [ApiController]
     public class ClientsController : ControllerBase
@@ -28,15 +27,12 @@ namespace mototun.API.Controllers
         {
             var currentUserId = GetCurrentUserId();
 
-            // current user must be a revendeur
             var revendeur = await _context.Revendeurs
                 .Include(r => r.User)
                 .FirstOrDefaultAsync(r => r.UserId == currentUserId);
 
             if (revendeur == null)
-            {
                 return Forbid();
-            }
 
             var clients = await _context.Clients
                 .Where(c => c.RevendeurId == revendeur.Id)
@@ -74,9 +70,7 @@ namespace mototun.API.Controllers
                 .FirstOrDefaultAsync(r => r.UserId == currentUserId);
 
             if (revendeur == null)
-            {
                 return Forbid();
-            }
 
             var client = await _context.Clients
                 .Include(c => c.User)
@@ -122,27 +116,42 @@ namespace mototun.API.Controllers
                 .FirstOrDefaultAsync(r => r.UserId == currentUserId);
 
             if (revendeur == null)
-            {
                 return Forbid();
-            }
 
-            // email unique
-            var emailExists = await _context.Users
-                .AnyAsync(u => u.Email == dto.Email);
+            // normalize
+            var fullName = dto.FullName?.Trim();
+            var email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim();
+            var phone = string.IsNullOrWhiteSpace(dto.Phone) ? null : dto.Phone.Trim();
+            var cin = dto.CIN?.Trim();
+            var address = dto.Address?.Trim();
+            var city = dto.City?.Trim();
 
-            if (emailExists)
+            if (string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(cin))
             {
                 return BadRequest(new ApiResponse<ClientDto>
                 {
                     Success = false,
-                    Message = "Email déjà utilisé"
+                    Message = "FullName et CIN sont obligatoires"
                 });
             }
 
-            // cin unique
-            var cinExists = await _context.Clients
-                .AnyAsync(c => c.CIN == dto.CIN);
+            // email unique ONLY if provided
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                var emailExists = await _context.Users.AnyAsync(u => u.Email == email);
+                if (emailExists)
+                {
+                    return BadRequest(new ApiResponse<ClientDto>
+                    {
+                        Success = false,
+                        Message = "Email déjà utilisé"
+                    });
+                }
+            }
 
+            // cin unique (global). If you want CIN unique per revendeur instead, change to:
+            // .AnyAsync(c => c.CIN == cin && c.RevendeurId == revendeur.Id)
+            var cinExists = await _context.Clients.AnyAsync(c => c.CIN == cin);
             if (cinExists)
             {
                 return BadRequest(new ApiResponse<ClientDto>
@@ -152,14 +161,18 @@ namespace mototun.API.Controllers
                 });
             }
 
+            // create a User row for client BUT with CanLogin = false
+            // (make sure you added CanLogin property in User entity)
             var user = new User
             {
-                FullName = dto.FullName,
-                Email = dto.Email,
-                Phone = dto.Phone,
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("Client123!"),
+                FullName = fullName!,
+                Email = email,
+                Phone = phone,
+                // random password so nobody can login with it
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
                 Role = UserRole.Client,
                 Status = UserStatus.Active,
+                CanLogin = false,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -170,9 +183,9 @@ namespace mototun.API.Controllers
             {
                 UserId = user.Id,
                 RevendeurId = revendeur.Id,
-                CIN = dto.CIN,
-                Address = dto.Address,
-                City = dto.City,
+                CIN = cin!,
+                Address = address,
+                City = city,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -210,9 +223,7 @@ namespace mototun.API.Controllers
                 .FirstOrDefaultAsync(r => r.UserId == currentUserId);
 
             if (revendeur == null)
-            {
                 return Forbid();
-            }
 
             var client = await _context.Clients
                 .Include(c => c.User)
@@ -227,12 +238,64 @@ namespace mototun.API.Controllers
                 });
             }
 
-            client.User.FullName = dto.FullName;
-            client.User.Email = dto.Email;
-            client.User.Phone = dto.Phone;
-            client.CIN = dto.CIN;
-            client.Address = dto.Address;
-            client.City = dto.City;
+            // normalize
+            var fullName = dto.FullName?.Trim();
+            var email = string.IsNullOrWhiteSpace(dto.Email) ? null : dto.Email.Trim();
+            var phone = string.IsNullOrWhiteSpace(dto.Phone) ? null : dto.Phone.Trim();
+            var cin = dto.CIN?.Trim();
+            var address = dto.Address?.Trim();
+            var city = dto.City?.Trim();
+
+            if (string.IsNullOrWhiteSpace(fullName) || string.IsNullOrWhiteSpace(cin))
+            {
+                return BadRequest(new ApiResponse<ClientDto>
+                {
+                    Success = false,
+                    Message = "FullName et CIN sont obligatoires"
+                });
+            }
+
+            // email unique ONLY if provided, and excluding this user
+            if (!string.IsNullOrWhiteSpace(email))
+            {
+                var emailExists = await _context.Users
+                    .AnyAsync(u => u.Email == email && u.Id != client.UserId);
+
+                if (emailExists)
+                {
+                    return BadRequest(new ApiResponse<ClientDto>
+                    {
+                        Success = false,
+                        Message = "Email déjà utilisé"
+                    });
+                }
+            }
+
+            // CIN unique (global) excluding this client
+            var cinExists = await _context.Clients
+                .AnyAsync(c => c.CIN == cin && c.Id != client.Id);
+
+            if (cinExists)
+            {
+                return BadRequest(new ApiResponse<ClientDto>
+                {
+                    Success = false,
+                    Message = "CIN déjà utilisé"
+                });
+            }
+
+            // Update
+            client.User.FullName = fullName!;
+            client.User.Email = email;
+            client.User.Phone = phone;
+
+            // enforce client cannot login
+            client.User.Role = UserRole.Client;
+            client.User.CanLogin = false;
+
+            client.CIN = cin!;
+            client.Address = address;
+            client.City = city;
 
             await _context.SaveChangesAsync();
 
@@ -267,9 +330,7 @@ namespace mototun.API.Controllers
                 .FirstOrDefaultAsync(r => r.UserId == currentUserId);
 
             if (revendeur == null)
-            {
                 return Forbid();
-            }
 
             var client = await _context.Clients
                 .Include(c => c.User)
@@ -284,10 +345,11 @@ namespace mototun.API.Controllers
                 });
             }
 
-            // keep user but deactivate, or delete both – here: deactivate user
+            // deactivate user, remove client row
             client.User.Status = UserStatus.Inactive;
-            _context.Clients.Remove(client);
+            client.User.CanLogin = false;
 
+            _context.Clients.Remove(client);
             await _context.SaveChangesAsync();
 
             return Ok(new ApiResponse<object>

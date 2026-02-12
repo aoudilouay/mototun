@@ -14,6 +14,8 @@ namespace mototun.Infrastructure.Data
         public DbSet<Revendeur> Revendeurs { get; set; }
         public DbSet<Fournisseur> Fournisseurs { get; set; }
         public DbSet<Client> Clients { get; set; }
+        public DbSet<Motorcycle> Motorcycles { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
 {
@@ -100,6 +102,29 @@ namespace mototun.Infrastructure.Data
         entity.HasIndex(e => e.RevendeurId);
         entity.HasIndex(e => e.CreatedAt);
     });
+    // Motorcycle Configuration
+modelBuilder.Entity<Motorcycle>(entity =>
+{
+    entity.HasKey(e => e.Id);
+
+    entity.HasOne(e => e.Revendeur)
+        .WithMany()
+        .HasForeignKey(e => e.RevendeurId)
+        .OnDelete(DeleteBehavior.Cascade);
+
+    entity.Property(e => e.Company).IsRequired().HasMaxLength(100);
+    entity.Property(e => e.Brand).IsRequired().HasMaxLength(100);
+    entity.Property(e => e.Model).IsRequired().HasMaxLength(150);
+
+    entity.Property(e => e.PurchasePrice).HasColumnType("decimal(18,2)");
+    entity.Property(e => e.SalePrice).HasColumnType("decimal(18,2)");
+
+    entity.HasIndex(e => e.RevendeurId);
+    entity.HasIndex(e => e.Company);
+    entity.HasIndex(e => e.Brand);
+});
+
+    
 }
 
     }

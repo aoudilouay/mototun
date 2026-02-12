@@ -124,6 +124,58 @@ namespace mototun.Infrastructure.Migrations
                     b.ToTable("Fournisseurs");
                 });
 
+            modelBuilder.Entity("mototun.Core.Entities.Motorcycle", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Brand")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Company")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<decimal>("PurchasePrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Qty")
+                        .HasColumnType("int");
+
+                    b.Property<int>("RevendeurId")
+                        .HasColumnType("int");
+
+                    b.Property<decimal>("SalePrice")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Brand");
+
+                    b.HasIndex("Company");
+
+                    b.HasIndex("RevendeurId");
+
+                    b.ToTable("Motorcycles");
+                });
+
             modelBuilder.Entity("mototun.Core.Entities.Revendeur", b =>
                 {
                     b.Property<int>("Id")
@@ -193,6 +245,9 @@ namespace mototun.Infrastructure.Migrations
                     b.Property<string>("Avatar")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("CanLogin")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -269,6 +324,17 @@ namespace mototun.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("mototun.Core.Entities.Motorcycle", b =>
+                {
+                    b.HasOne("mototun.Core.Entities.Revendeur", "Revendeur")
+                        .WithMany()
+                        .HasForeignKey("RevendeurId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Revendeur");
                 });
 
             modelBuilder.Entity("mototun.Core.Entities.Revendeur", b =>

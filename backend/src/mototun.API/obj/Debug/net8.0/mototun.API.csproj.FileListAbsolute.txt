@@ -149,3 +149,4 @@ C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.API\obj\Debug\net8.0\refint
 C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.API\obj\Debug\net8.0\mototun.API.pdb
 C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.API\obj\Debug\net8.0\mototun.API.genruntimeconfig.cache
 C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.API\obj\Debug\net8.0\ref\mototun.API.dll
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.API\obj\Debug\net8.0\mototun.API.sourcelink.json

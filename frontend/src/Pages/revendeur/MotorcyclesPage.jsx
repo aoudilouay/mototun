@@ -1,627 +1,702 @@
-import { useState } from 'react';
+import { useMemo, useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Toaster, toast } from "sonner";
+import {
+  Plus,
+  Search,
+  Grid2X2,
+  List,
+  RotateCcw,
+  Pencil,
+  Trash2,
+} from "lucide-react";
 
-function MotorcyclesPage() {
-  const [viewMode, setViewMode] = useState('grid'); // grid or list
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [selectedMoto, setSelectedMoto] = useState(null);
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [filterCompany, setFilterCompany] = useState('all');
-  const [filterBrand, setFilterBrand] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
+import axiosInstance from '../../api/axios';
+ 
+const cn = (...xs) => xs.filter(Boolean).join(" ");
 
-  // Form state for adding/editing motorcycle
-  const [motoForm, setMotoForm] = useState({
-    brand: '',
-    model: '',
-    year: new Date().getFullYear(),
-    color: '',
-    price: '',
-    purchasePrice: '',
-    chassisNumber: '',
-    engineNumber: '',
-    company: 'Zimota',
-    status: 'in_stock', // in_stock, sold, reserved
-    stock: 1,
-    images: [],
-    description: '',
-    features: '',
-    arrivalDate: new Date().toISOString().split('T')[0]
+const BRANDS = ["all", "Yamaha", "Honda", "Suzuki", "Kawasaki", "KTM", "BMW"];
+const COMPANIES = ["all", "Zimota", "Forza", "GSM", "Sanya"];
+
+function money(n) {
+  const num = typeof n === "string" ? Number(n) : n;
+  if (n === "" || n === null || n === undefined || Number.isNaN(num)) return "—";
+  return `${num.toLocaleString()} TND`;
+}
+function clampInt(v) {
+  const n = Number(v);
+  if (Number.isNaN(n)) return 0;
+  return Math.max(0, Math.floor(n));
+}
+function clampNum(v) {
+  const n = Number(v);
+  if (Number.isNaN(n)) return 0;
+  return Math.max(0, n);
+}
+
+function getCompanyColor(company) {
+  const colors = {
+    Zimota: "bg-blue-100 text-blue-700 border-blue-200",
+    Forza: "bg-red-100 text-red-700 border-red-200",
+    GSM: "bg-green-100 text-green-700 border-green-200",
+    Sanya: "bg-purple-100 text-purple-700 border-purple-200",
+  };
+  return colors[company] || "bg-slate-100 text-slate-700 border-slate-200";
+}
+
+function stockInfo(qty) {
+  if (qty <= 0)
+    return {
+      label: "Rupture",
+      bg: "bg-rose-50 border-rose-200",
+      text: "text-rose-700",
+      badge: "bg-rose-100 text-rose-700 border-rose-200",
+      icon: "⛔",
+    };
+  if (qty <= 2)
+    return {
+      label: "Stock bas",
+      bg: "bg-amber-50 border-amber-200",
+      text: "text-amber-800",
+      badge: "bg-amber-100 text-amber-800 border-amber-200",
+      icon: "⚠️",
+    };
+  return {
+    label: "En stock",
+    bg: "bg-emerald-50 border-emerald-200",
+    text: "text-emerald-700",
+    badge: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    icon: "✓",
+  };
+}
+
+function StatBox({ value, label, cls }) {
+  return (
+    <div className={cn("text-center p-4 rounded-lg", cls)}>
+      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-xs mt-1">{label}</p>
+    </div>
+  );
+}
+
+function SoftBtn({ children, onClick, variant = "default", className, disabled }) {
+  const base =
+    "inline-flex items-center gap-2 px-4 py-2 rounded-lg transition-colors font-semibold";
+  const styles = {
+    default: "border border-slate-300 hover:bg-slate-50 text-slate-700 bg-white",
+    primary: "bg-slate-900 hover:bg-slate-950 text-white shadow-lg",
+    danger: "bg-rose-600 hover:bg-rose-700 text-white",
+  };
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={cn(
+        base,
+        styles[variant],
+        disabled && "opacity-60 cursor-not-allowed",
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/**
+ * API SHAPE (what we expect from backend):
+ * ApiResponse<T> -> { success, message, data }
+ *
+ * MotorcycleDto:
+ * {
+ *   motorcycleId: guid/int,
+ *   revendeurId: guid/int,
+ *   company, brand, model,
+ *   qty, purchasePrice, salePrice
+ * }
+ */
+
+// ✅ map API -> UI
+function fromApi(x) {
+  return {
+    id: x.motorcycleId ?? x.id,
+    revendeurId: x.revendeurId,
+    company: x.company,
+    brand: x.brand,
+    model: x.model,
+    qty: x.qty,
+    purchasePrice: x.purchasePrice,
+    salePrice: x.salePrice,
+  };
+}
+
+// ✅ map UI -> API payload
+function toPayload(m) {
+  return {
+    company: String(m.company).trim(),
+    brand: String(m.brand).trim(),
+    model: String(m.model).trim(),
+    qty: Number(m.qty),
+    purchasePrice: Number(m.purchasePrice),
+    salePrice: Number(m.salePrice),
+  };
+}
+
+export default function MotorcyclesPage() {
+  const [viewMode, setViewMode] = useState("grid");
+  const [selected, setSelected] = useState([]);
+
+  const [filterCompany, setFilterCompany] = useState("all");
+  const [filterBrand, setFilterBrand] = useState("all");
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Drawer state
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  const [form, setForm] = useState({
+    company: "Zimota",
+    brand: "Yamaha",
+    model: "",
+    qty: 1,
+    purchasePrice: "",
+    salePrice: "",
   });
 
-  // Mock motorcycles data
-  const motorcycles = [
-    {
-      id: 1,
-      brand: 'Yamaha',
-      model: 'R125',
-      year: 2024,
-      color: 'Bleu Racing',
-      price: 12500,
-      purchasePrice: 10500,
-      chassisNumber: 'JYARN23E00A000123',
-      engineNumber: 'E4G15000123',
-      company: 'Zimota',
-      status: 'in_stock',
-      stock: 3,
-      image: '🏍️',
-      arrivalDate: '10 Jan 2026',
-      soldDate: null,
-      features: ['ABS', 'LED Lights', 'Digital Display'],
-      description: 'Sportive et agile, parfaite pour la ville'
-    },
-    {
-      id: 2,
-      brand: 'Honda',
-      model: 'CBR 250',
-      year: 2024,
-      color: 'Rouge',
-      price: 18900,
-      purchasePrice: 16200,
-      chassisNumber: 'JH2MC41000K100456',
-      engineNumber: 'MC41E2100789',
-      company: 'Forza',
-      status: 'sold',
-      stock: 0,
-      image: '🏍️',
-      arrivalDate: '08 Jan 2026',
-      soldDate: '14 Jan 2026',
-      soldTo: 'Karim Mohamed',
-      features: ['ABS', 'Sport Mode', 'USB Charger'],
-      description: 'Performance et confort pour tous les trajets'
-    },
-    {
-      id: 3,
-      brand: 'Suzuki',
-      model: 'GSX-S150',
-      year: 2024,
-      color: 'Noir Mat',
-      price: 9800,
-      purchasePrice: 8500,
-      chassisNumber: 'JS1GD79A902100789',
-      engineNumber: 'D13A789012',
-      company: 'GSM',
-      status: 'reserved',
-      stock: 1,
-      image: '🏍️',
-      arrivalDate: '12 Jan 2026',
-      reservedBy: 'Fatma Trabelsi',
-      reservedDate: '13 Jan 2026',
-      features: ['Injection', 'LED', 'Digital Speedo'],
-      description: 'Économique et fiable'
-    },
-    {
-      id: 4,
-      brand: 'Kawasaki',
-      model: 'Ninja 300',
-      year: 2024,
-      color: 'Vert Kawasaki',
-      price: 22500,
-      purchasePrice: 19800,
-      chassisNumber: 'JKAEXMJ17DA000234',
-      engineNumber: 'EX300E234567',
-      company: 'Sanya',
-      status: 'in_stock',
-      stock: 2,
-      image: '🏍️',
-      arrivalDate: '09 Jan 2026',
-      features: ['ABS', 'Slipper Clutch', 'Twin Cylinder'],
-      description: 'La référence des sportives'
-    },
-    {
-      id: 5,
-      brand: 'Yamaha',
-      model: 'MT-03',
-      year: 2024,
-      color: 'Gris Foncé',
-      price: 16800,
-      purchasePrice: 14500,
-      chassisNumber: 'JYARN23E00A000567',
-      engineNumber: 'E4G15000567',
-      company: 'Zimota',
-      status: 'in_stock',
-      stock: 1,
-      image: '🏍️',
-      arrivalDate: '11 Jan 2026',
-      features: ['ABS', 'Naked Style', 'LED Headlight'],
-      description: 'Style agressif et performance'
-    },
-    {
-      id: 6,
-      brand: 'Honda',
-      model: 'CB 125F',
-      year: 2024,
-      color: 'Rouge/Noir',
-      price: 7500,
-      purchasePrice: 6200,
-      chassisNumber: 'JH2JC81000K100890',
-      engineNumber: 'JC81E890123',
-      company: 'Forza',
-      status: 'in_stock',
-      stock: 5,
-      image: '🏍️',
-      arrivalDate: '07 Jan 2026',
-      features: ['Économique', 'Confortable', 'Fiable'],
-      description: 'Idéale pour les débutants'
+  const [motos, setMotos] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // ---------------- API CALLS ----------------
+  async function fetchMotos() {
+    setLoading(true);
+    try {
+      const res = await axiosInstance.get("/Motorcycles");
+      const list = (res?.data?.data ?? []).map(fromApi);
+      setMotos(list);
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur chargement motos");
+    } finally {
+      setLoading(false);
     }
-  ];
+  }
 
-  const companies = ['all', 'Zimota', 'Forza', 'GSM', 'Sanya'];
-  const brands = ['all', 'Yamaha', 'Honda', 'Suzuki', 'Kawasaki', 'KTM', 'BMW'];
-  const colors = ['Noir', 'Blanc', 'Rouge', 'Bleu', 'Vert', 'Gris', 'Orange', 'Jaune', 'Noir Mat', 'Bleu Racing'];
+  async function apiCreate(payload) {
+    const res = await axiosInstance.post("/Motorcycles", payload);
+    return fromApi(res?.data?.data);
+  }
 
-  const getStatusInfo = (status) => {
-    const statusMap = {
-      in_stock: {
-        label: 'En stock',
-        icon: '✓',
-        bgClass: 'bg-green-50 border-green-300',
-        textClass: 'text-green-700',
-        badgeClass: 'bg-green-100 text-green-700 border-green-200'
-      },
-      sold: {
-        label: 'Vendu',
-        icon: '🎉',
-        bgClass: 'bg-slate-50 border-slate-300',
-        textClass: 'text-slate-600',
-        badgeClass: 'bg-slate-100 text-slate-700 border-slate-200'
-      },
-      reserved: {
-        label: 'Réservé',
-        icon: '🔒',
-        bgClass: 'bg-amber-50 border-amber-300',
-        textClass: 'text-amber-700',
-        badgeClass: 'bg-amber-100 text-amber-700 border-amber-200'
-      }
-    };
-    return statusMap[status];
-  };
+  async function apiUpdate(id, payload) {
+    const res = await axiosInstance.put(`/Motorcycles/${id}`, payload);
+    return fromApi(res?.data?.data);
+  }
 
-  const getCompanyColor = (company) => {
-    const colors = {
-      'Zimota': 'bg-blue-100 text-blue-700 border-blue-200',
-      'Forza': 'bg-red-100 text-red-700 border-red-200',
-      'GSM': 'bg-green-100 text-green-700 border-green-200',
-      'Sanya': 'bg-purple-100 text-purple-700 border-purple-200'
-    };
-    return colors[company] || 'bg-slate-100 text-slate-700 border-slate-200';
-  };
+  async function apiDelete(id) {
+    await axiosInstance.delete(`/Motorcycles/${id}`);
+  }
+  // -------------------------------------------
 
-  const filteredMotorcycles = motorcycles.filter(moto => {
-    const matchesStatus = filterStatus === 'all' || moto.status === filterStatus;
-    const matchesCompany = filterCompany === 'all' || moto.company === filterCompany;
-    const matchesBrand = filterBrand === 'all' || moto.brand === filterBrand;
-    const matchesSearch = 
-      moto.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      moto.model.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      moto.chassisNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesStatus && matchesCompany && matchesBrand && matchesSearch;
-  });
+  useEffect(() => {
+    fetchMotos();
+  }, []);
 
-  const stats = {
-    total: motorcycles.length,
-    inStock: motorcycles.filter(m => m.status === 'in_stock').length,
-    sold: motorcycles.filter(m => m.status === 'sold').length,
-    reserved: motorcycles.filter(m => m.status === 'reserved').length,
-    totalValue: motorcycles
-      .filter(m => m.status === 'in_stock')
-      .reduce((sum, m) => sum + (m.price * m.stock), 0),
-    totalStock: motorcycles
-      .filter(m => m.status === 'in_stock')
-      .reduce((sum, m) => sum + m.stock, 0)
-  };
-
-  const handleFormChange = (field, value) => {
-    setMotoForm(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleAddMoto = () => {
-    // TODO: Add to backend
-    console.log('Adding motorcycle:', motoForm);
-    setShowAddModal(false);
-    // Reset form
-    setMotoForm({
-      brand: '',
-      model: '',
-      year: new Date().getFullYear(),
-      color: '',
-      price: '',
-      purchasePrice: '',
-      chassisNumber: '',
-      engineNumber: '',
-      company: 'Zimota',
-      status: 'in_stock',
-      stock: 1,
-      images: [],
-      description: '',
-      features: '',
-      arrivalDate: new Date().toISOString().split('T')[0]
+  const filtered = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    return motos.filter((m) => {
+      const matchesCompany = filterCompany === "all" || m.company === filterCompany;
+      const matchesBrand = filterBrand === "all" || m.brand === filterBrand;
+      const matchesSearch =
+        !q || m.brand.toLowerCase().includes(q) || m.model.toLowerCase().includes(q);
+      return matchesCompany && matchesBrand && matchesSearch;
     });
-  };
+  }, [motos, filterCompany, filterBrand, searchTerm]);
+
+  const stats = useMemo(() => {
+    const totalModels = motos.length;
+    const totalQty = motos.reduce((s, x) => s + (x.qty || 0), 0);
+    const low = motos.filter((x) => (x.qty || 0) > 0 && (x.qty || 0) <= 2).length;
+    const out = motos.filter((x) => (x.qty || 0) <= 0).length;
+    const buy = motos.reduce((s, x) => s + (x.qty || 0) * (x.purchasePrice || 0), 0);
+    const sell = motos.reduce((s, x) => s + (x.qty || 0) * (x.salePrice || 0), 0);
+    return { totalModels, totalQty, low, out, buy, sell };
+  }, [motos]);
+
+  function isSelected(id) {
+    return selected.includes(id);
+  }
+
+  function toggleSelect(id) {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function selectAll() {
+    if (selected.length === filtered.length) setSelected([]);
+    else setSelected(filtered.map((x) => x.id));
+  }
+
+  function resetFilters() {
+    setFilterCompany("all");
+    setFilterBrand("all");
+    setSearchTerm("");
+    setSelected([]);
+    toast.message("Réinitialisé");
+  }
+
+  function openAdd() {
+    setEditing(null);
+    setForm({
+      company: "Zimota",
+      brand: "Yamaha",
+      model: "",
+      qty: 1,
+      purchasePrice: "",
+      salePrice: "",
+    });
+    setPanelOpen(true);
+  }
+
+  function openEdit(m) {
+    setEditing(m);
+    setForm({
+      company: m.company,
+      brand: m.brand,
+      model: m.model,
+      qty: m.qty,
+      purchasePrice: m.purchasePrice,
+      salePrice: m.salePrice,
+    });
+    setPanelOpen(true);
+  }
+
+  async function save() {
+    const payload = {
+      company: String(form.company).trim(),
+      brand: String(form.brand).trim(),
+      model: String(form.model).trim(),
+      qty: clampInt(form.qty),
+      purchasePrice: clampNum(form.purchasePrice),
+      salePrice: clampNum(form.salePrice),
+    };
+
+    if (!payload.company || !payload.brand || !payload.model) {
+      return toast.error("Champs requis manquants");
+    }
+
+    setSaving(true);
+    try {
+      if (!editing) {
+        const created = await apiCreate(toPayload(payload));
+        setMotos((prev) => [created, ...prev]);
+        toast.success("Moto ajoutée");
+      } else {
+        const updated = await apiUpdate(editing.id, toPayload(payload));
+        setMotos((prev) => prev.map((x) => (x.id === editing.id ? updated : x)));
+        toast.success("Moto modifiée");
+      }
+      setPanelOpen(false);
+    } catch (e) {
+      console.error(e);
+      toast.error("Erreur enregistrement");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function remove(id) {
+    const old = motos;
+    // optimistic
+    setMotos((prev) => prev.filter((x) => x.id !== id));
+    setSelected((prev) => prev.filter((x) => x !== id));
+
+    try {
+      await apiDelete(id);
+      toast.success("Moto supprimée");
+    } catch (e) {
+      console.error(e);
+      setMotos(old); // rollback
+      toast.error("Suppression échouée");
+    }
+  }
+
+  async function removeSelected() {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+
+    const old = motos;
+    setMotos((prev) => prev.filter((x) => !ids.includes(x.id)));
+    setSelected([]);
+
+    try {
+      await Promise.all(ids.map((id) => apiDelete(id)));
+      toast.success("Suppression terminée");
+    } catch (e) {
+      console.error(e);
+      setMotos(old);
+      toast.error("Suppression partielle/échouée");
+    }
+  }
 
   return (
     <div className="space-y-6">
-      
+      <Toaster richColors position="bottom-right" />
+
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">🏍️ Stock Motos</h1>
-          <p className="text-slate-600 mt-1">Gérez votre inventaire de motos</p>
+          <h1 className="text-3xl font-bold text-slate-900">📦 Gestion Stock Motos</h1>
+          <p className="text-slate-600 mt-1">Explorer pattern + Drawer ERP</p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-lg shadow-xl transition-all transform hover:-translate-y-0.5"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          Ajouter Moto
-        </button>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-white rounded-xl p-5 border border-slate-200 hover:shadow-lg transition-all">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xl">📦</span>
-            <span className="text-xs text-slate-500">Total</span>
-          </div>
-          <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
-          <p className="text-xs text-slate-600 mt-1">Motos</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-5 border border-green-200 hover:shadow-lg transition-all">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xl">✓</span>
-            <span className="text-xs text-green-700">Stock</span>
-          </div>
-          <p className="text-2xl font-bold text-green-700">{stats.inStock}</p>
-          <p className="text-xs text-green-600 mt-1">{stats.totalStock} unités</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-5 border border-slate-200 hover:shadow-lg transition-all">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xl">🎉</span>
-            <span className="text-xs text-slate-600">Vendues</span>
-          </div>
-          <p className="text-2xl font-bold text-slate-700">{stats.sold}</p>
-          <p className="text-xs text-slate-600 mt-1">Ce mois</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-5 border border-amber-200 hover:shadow-lg transition-all">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xl">🔒</span>
-            <span className="text-xs text-amber-700">Réservées</span>
-          </div>
-          <p className="text-2xl font-bold text-amber-700">{stats.reserved}</p>
-          <p className="text-xs text-amber-600 mt-1">En attente</p>
-        </div>
-
-        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-5 border border-blue-200 hover:shadow-lg transition-all md:col-span-2">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-2xl">💰</span>
-            <span className="text-xs text-blue-700">Valeur</span>
-          </div>
-          <p className="text-2xl font-bold text-blue-700">{stats.totalValue.toLocaleString()} TND</p>
-          <p className="text-xs text-blue-600 mt-1">Stock actuel</p>
+        <div className="flex items-center gap-3">
+          <SoftBtn variant="primary" onClick={openAdd}>
+            <Plus className="w-5 h-5" />
+            Ajouter Moto
+          </SoftBtn>
         </div>
       </div>
 
-      {/* Filters & Search Toolbar */}
+      {/* Stats Bar */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <StatBox value={stats.totalModels} label="Modèles" cls="bg-slate-50 text-slate-900" />
+          <StatBox value={stats.totalQty} label="Quantité" cls="bg-blue-50 text-blue-700" />
+          <StatBox value={stats.low} label="Stock bas" cls="bg-amber-50 text-amber-800" />
+          <StatBox value={stats.out} label="Rupture" cls="bg-rose-50 text-rose-700" />
+          <StatBox value={money(stats.buy)} label="Valeur achat" cls="bg-slate-50 text-slate-900" />
+          <StatBox value={money(stats.sell)} label="CA potentiel" cls="bg-emerald-50 text-emerald-700" />
+        </div>
+      </div>
+
+      {/* Toolbar */}
       <div className="bg-white rounded-xl border border-slate-200 p-4">
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4">
-          
-          {/* Left - Search */}
-          <div className="flex-1 w-full lg:w-auto">
+          {/* Left Side */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={selectAll}
+              className="flex items-center gap-2 px-4 py-2 border border-slate-300 hover:bg-slate-50 rounded-lg transition-colors"
+            >
+              <input
+                type="checkbox"
+                checked={selected.length === filtered.length && filtered.length > 0}
+                readOnly
+                className="w-4 h-4 text-blue-600 border-slate-300 rounded"
+              />
+              <span className="text-sm font-medium text-slate-700">
+                {selected.length > 0 ? `${selected.length} sélectionné(s)` : "Tout sélectionner"}
+              </span>
+            </button>
+
+            {selected.length > 0 && (
+              <SoftBtn variant="danger" onClick={removeSelected}>
+                <Trash2 className="w-4 h-4" />
+                Supprimer
+              </SoftBtn>
+            )}
+
+            {loading && <span className="text-sm text-slate-500">Chargement...</span>}
+          </div>
+
+          {/* Right Side */}
+          <div className="flex items-center gap-3">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+                <Search className="w-5 h-5 text-slate-400" />
               </div>
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Rechercher par marque, modèle, châssis..."
-                className="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Rechercher..."
+                className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 w-64"
               />
             </div>
-          </div>
 
-          {/* Right - Filters & View Mode */}
-          <div className="flex items-center gap-3 flex-wrap">
-            
-            {/* Status Filter */}
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">📊 Tous statuts</option>
-              <option value="in_stock">✓ En stock</option>
-              <option value="reserved">🔒 Réservées</option>
-              <option value="sold">🎉 Vendues</option>
-            </select>
-
-            {/* Company Filter */}
             <select
               value={filterCompany}
               onChange={(e) => setFilterCompany(e.target.value)}
               className="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
-              {companies.map(company => (
-                <option key={company} value={company}>
-                  {company === 'all' ? '🏢 Tous fournisseurs' : company}
+              {COMPANIES.map((c) => (
+                <option key={c} value={c}>
+                  {c === "all" ? "🏢 Tous fournisseurs" : c}
                 </option>
               ))}
             </select>
 
-            {/* Brand Filter */}
             <select
               value={filterBrand}
               onChange={(e) => setFilterBrand(e.target.value)}
               className="px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
             >
-              {brands.map(brand => (
-                <option key={brand} value={brand}>
-                  {brand === 'all' ? '🏍️ Toutes marques' : brand}
+              {BRANDS.map((b) => (
+                <option key={b} value={b}>
+                  {b === "all" ? "🏍️ Toutes marques" : b}
                 </option>
               ))}
             </select>
 
-            {/* View Mode Toggle */}
+            <SoftBtn variant="default" onClick={resetFilters}>
+              <RotateCcw className="w-4 h-4" />
+              Reset
+            </SoftBtn>
+
             <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden">
               <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 ${viewMode === 'grid' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => setViewMode("grid")}
+                className={cn(
+                  "p-2",
+                  viewMode === "grid" ? "bg-blue-50 text-blue-600" : "text-slate-600 hover:bg-slate-50"
+                )}
+                title="Grille"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                </svg>
+                <Grid2X2 className="w-5 h-5" />
               </button>
               <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 border-l border-slate-200 ${viewMode === 'list' ? 'bg-blue-50 text-blue-600' : 'text-slate-600 hover:bg-slate-50'}`}
+                onClick={() => setViewMode("list")}
+                className={cn(
+                  "p-2 border-l border-slate-200",
+                  viewMode === "list" ? "bg-blue-50 text-blue-600" : "text-slate-600 hover:bg-slate-50"
+                )}
+                title="Liste"
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                </svg>
+                <List className="w-5 h-5" />
               </button>
             </div>
-
           </div>
-
         </div>
       </div>
 
-      {/* Motorcycles Display - Grid View */}
-      {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {filteredMotorcycles.map((moto) => {
-            const statusInfo = getStatusInfo(moto.status);
-            const profit = moto.price - moto.purchasePrice;
-            const profitMargin = ((profit / moto.purchasePrice) * 100).toFixed(1);
+      {/* GRID VIEW */}
+      {viewMode === "grid" ? (
+        <div className="bg-white rounded-xl border border-slate-200 p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filtered.map((m) => {
+              const st = stockInfo(m.qty);
+              const selectedRow = isSelected(m.id);
+              const profit = (m.salePrice || 0) - (m.purchasePrice || 0);
 
-            return (
-              <div
-                key={moto.id}
-                className={`bg-white rounded-xl border-2 overflow-hidden hover:shadow-xl transition-all cursor-pointer group ${statusInfo.bgClass}`}
-                onClick={() => setSelectedMoto(moto)}
-              >
-                
-                {/* Image/Icon Section */}
-                <div className="relative bg-gradient-to-br from-slate-100 to-slate-200 h-48 flex items-center justify-center">
-                  <span className="text-7xl group-hover:scale-110 transition-transform">{moto.image}</span>
-                  
-                  {/* Status Badge */}
-                  <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold border ${statusInfo.badgeClass}`}>
-                    {statusInfo.icon} {statusInfo.label}
-                  </div>
-
-                  {/* Stock Badge */}
-                  {moto.status === 'in_stock' && moto.stock > 0 && (
-                    <div className="absolute top-3 left-3 px-3 py-1 bg-white rounded-full text-xs font-bold text-slate-900 border border-slate-300 shadow-lg">
-                      Stock: {moto.stock}
-                    </div>
+              return (
+                <div
+                  key={m.id}
+                  className={cn(
+                    "relative group border-2 rounded-xl p-4 cursor-pointer transition-all",
+                    selectedRow
+                      ? "border-blue-500 bg-blue-50 shadow-lg"
+                      : "border-slate-200 hover:border-blue-300 hover:shadow-md"
                   )}
-
-                  {/* Company Badge */}
-                  <div className={`absolute bottom-3 left-3 px-3 py-1 rounded-full text-xs font-bold border ${getCompanyColor(moto.company)}`}>
-                    {moto.company}
-                  </div>
-                </div>
-
-                {/* Info Section */}
-                <div className="p-5">
-                  
-                  {/* Brand & Model */}
-                  <div className="mb-3">
-                    <h3 className="text-xl font-bold text-slate-900 mb-1">
-                      {moto.brand} {moto.model}
-                    </h3>
-                    <div className="flex items-center gap-2 text-sm text-slate-600">
-                      <span>{moto.year}</span>
-                      <span>•</span>
-                      <span>{moto.color}</span>
-                    </div>
+                  onClick={() => openEdit(m)}
+                >
+                  <div
+                    className="absolute top-2 left-2 z-10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSelect(m.id);
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedRow}
+                      onChange={() => {}}
+                      className="w-5 h-5 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                    />
                   </div>
 
-                  {/* Price */}
-                  <div className="mb-4">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-black text-blue-600">
-                        {moto.price.toLocaleString()}
-                      </span>
-                      <span className="text-sm text-slate-600">TND</span>
-                    </div>
-                    {moto.status === 'in_stock' && (
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-slate-500">
-                          Achat: {moto.purchasePrice.toLocaleString()} TND
-                        </span>
-                        <span className={`text-xs font-bold ${profit > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          +{profitMargin}%
-                        </span>
+                  <div className="flex justify-center mb-4 mt-6">
+                    <div className="relative">
+                      <div className={cn("text-7xl", st.text)}>🏍️</div>
+                      <div
+                        className={cn(
+                          "absolute -bottom-2 -right-2 w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm",
+                          st.bg
+                        )}
+                      >
+                        {st.icon}
                       </div>
-                    )}
+                    </div>
                   </div>
 
-                  {/* Features */}
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {moto.features.slice(0, 3).map((feature, idx) => (
-                      <span key={idx} className="px-2 py-1 bg-slate-100 text-slate-700 rounded text-xs font-medium">
-                        {feature}
+                  <div className="space-y-2">
+                    <div className="text-center">
+                      <p className="font-bold text-slate-900 text-sm">
+                        {m.brand} {m.model}
+                      </p>
+                      <span
+                        className={cn(
+                          "inline-block mt-2 px-2 py-1 rounded-full text-xs font-semibold border",
+                          getCompanyColor(m.company)
+                        )}
+                      >
+                        {m.company}
                       </span>
-                    ))}
-                  </div>
-
-                  {/* Chassis Number */}
-                  <div className="text-xs text-slate-500 font-mono mb-4 truncate">
-                    {moto.chassisNumber}
-                  </div>
-
-                  {/* Additional Info based on status */}
-                  {moto.status === 'sold' && moto.soldTo && (
-                    <div className="bg-slate-50 rounded-lg p-3 mb-3 border border-slate-200">
-                      <p className="text-xs text-slate-600 mb-1">Vendu à:</p>
-                      <p className="text-sm font-semibold text-slate-900">{moto.soldTo}</p>
-                      <p className="text-xs text-slate-500 mt-1">{moto.soldDate}</p>
                     </div>
-                  )}
 
-                  {moto.status === 'reserved' && moto.reservedBy && (
-                    <div className="bg-amber-50 rounded-lg p-3 mb-3 border border-amber-200">
-                      <p className="text-xs text-amber-700 mb-1">Réservé par:</p>
-                      <p className="text-sm font-semibold text-amber-900">{moto.reservedBy}</p>
-                      <p className="text-xs text-amber-600 mt-1">{moto.reservedDate}</p>
+                    <div className="grid grid-cols-2 gap-2 text-center">
+                      <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
+                        <p className="text-[10px] text-slate-500 font-semibold">Achat</p>
+                        <p className="text-xs font-bold text-slate-900">{money(m.purchasePrice)}</p>
+                      </div>
+                      <div className="bg-slate-50 rounded-lg p-2 border border-slate-200">
+                        <p className="text-[10px] text-slate-500 font-semibold">Vente</p>
+                        <p className="text-xs font-bold text-slate-900">{money(m.salePrice)}</p>
+                      </div>
                     </div>
-                  )}
 
-                  {/* Action Buttons */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setSelectedMoto(moto);
-                      }}
-                      className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
-                    >
-                      Voir détails
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Edit functionality
-                      }}
-                      className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
+                    <div className="flex items-center justify-between">
+                      <span className={cn("px-2 py-1 rounded-full text-xs font-semibold border", st.badge)}>
+                        {st.label}
+                      </span>
+                      <span className="text-xs font-bold text-slate-900">Qté: {m.qty}</span>
+                    </div>
+
+                    <div className="text-center">
+                      <span className={cn("text-xs font-bold", profit >= 0 ? "text-emerald-700" : "text-rose-700")}>
+                        Marge: {profit >= 0 ? "+" : ""}
+                        {money(profit)}
+                      </span>
+                    </div>
+
+                    <div className="mt-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition">
+                      <SoftBtn
+                        variant="default"
+                        className="flex-1 justify-center"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openEdit(m);
+                        }}
+                      >
+                        <Pencil className="w-4 h-4" />
+                        Modifier
+                      </SoftBtn>
+                      <SoftBtn
+                        variant="danger"
+                        className="flex-1 justify-center"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          remove(m.id);
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Suppr.
+                      </SoftBtn>
+                    </div>
                   </div>
-
                 </div>
+              );
+            })}
+          </div>
 
-              </div>
-            );
-          })}
+          {filtered.length === 0 && (
+            <div className="text-center py-16">
+              <div className="text-6xl mb-4">📦</div>
+              <p className="text-xl font-semibold text-slate-900 mb-2">Aucune moto trouvée</p>
+              <p className="text-slate-600">Modifiez vos filtres ou ajoutez une nouvelle moto</p>
+            </div>
+          )}
         </div>
       ) : (
-        /* List View */
+        /* LIST VIEW */
         <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
+                  <th className="px-6 py-4 text-left">
+                    <input
+                      type="checkbox"
+                      checked={selected.length === filtered.length && filtered.length > 0}
+                      onChange={selectAll}
+                      className="w-4 h-4 text-blue-600 border-slate-300 rounded"
+                    />
+                  </th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Moto</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Fournisseur</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Châssis</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Prix vente</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Nombre</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Prix achat</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Prix vente</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Marge</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Stock</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Statut</th>
                   <th className="px-6 py-4 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>
                 </tr>
               </thead>
+
               <tbody className="divide-y divide-slate-200">
-                {filteredMotorcycles.map((moto) => {
-                  const statusInfo = getStatusInfo(moto.status);
-                  const profit = moto.price - moto.purchasePrice;
-                  const profitMargin = ((profit / moto.purchasePrice) * 100).toFixed(1);
+                {filtered.map((m) => {
+                  const selectedRow = isSelected(m.id);
+                  const st = stockInfo(m.qty);
+                  const profit = (m.salePrice || 0) - (m.purchasePrice || 0);
 
                   return (
-                    <tr key={moto.id} className="hover:bg-slate-50 transition-colors">
+                    <tr
+                      key={m.id}
+                      className={cn("hover:bg-slate-50 transition-colors cursor-pointer", selectedRow ? "bg-blue-50" : "")}
+                      onClick={() => openEdit(m)}
+                    >
+                      <td className="px-6 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedRow}
+                          onChange={() => {}}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSelect(m.id);
+                          }}
+                          className="w-4 h-4 text-blue-600 border-slate-300 rounded"
+                        />
+                      </td>
+
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <span className="text-3xl">{moto.image}</span>
+                          <span className="text-2xl">🏍️</span>
                           <div>
-                            <p className="font-bold text-slate-900">
-                              {moto.brand} {moto.model}
+                            <p className="font-semibold text-slate-900">
+                              {m.brand} {m.model}
                             </p>
-                            <p className="text-sm text-slate-600">
-                              {moto.year} • {moto.color}
-                            </p>
+                            <span className={cn("inline-block mt-1 px-2 py-0.5 rounded-full text-xs font-semibold border", st.badge)}>
+                              {st.icon} {st.label}
+                            </span>
                           </div>
                         </div>
                       </td>
+
                       <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getCompanyColor(moto.company)}`}>
-                          {moto.company}
+                        <span className={cn("px-3 py-1 rounded-full text-xs font-semibold border", getCompanyColor(m.company))}>
+                          {m.company}
                         </span>
                       </td>
+
+                      <td className="px-6 py-4 font-bold text-slate-900">{m.qty}</td>
+                      <td className="px-6 py-4 font-semibold text-slate-900">{money(m.purchasePrice)}</td>
+                      <td className="px-6 py-4 font-semibold text-slate-900">{money(m.salePrice)}</td>
+
                       <td className="px-6 py-4">
-                        <span className="text-sm font-mono text-slate-700">{moto.chassisNumber}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-lg font-bold text-blue-600">
-                          {moto.price.toLocaleString()} TND
+                        <span className={cn("font-bold", profit >= 0 ? "text-emerald-700" : "text-rose-700")}>
+                          {profit >= 0 ? "+" : ""}
+                          {money(profit)}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-slate-600">
-                          {moto.purchasePrice.toLocaleString()} TND
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <span className={`text-sm font-bold ${profit > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                            +{profit.toLocaleString()} TND
-                          </span>
-                          <p className="text-xs text-slate-500">({profitMargin}%)</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-lg font-bold text-slate-900">{moto.stock}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusInfo.badgeClass}`}>
-                          {statusInfo.icon} {statusInfo.label}
-                        </span>
-                      </td>
+
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => setSelectedMoto(moto)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Voir"
+                          <SoftBtn
+                            variant="default"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEdit(m);
+                            }}
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          </button>
-                          <button className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="Modifier">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
-                          <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Supprimer">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                            <Pencil className="w-4 h-4" />
+                            Modifier
+                          </SoftBtn>
+                          <SoftBtn
+                            variant="danger"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              remove(m.id);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Supprimer
+                          </SoftBtn>
                         </div>
                       </td>
                     </tr>
@@ -633,438 +708,126 @@ function MotorcyclesPage() {
         </div>
       )}
 
-      {/* No Results */}
-      {filteredMotorcycles.length === 0 && (
-        <div className="bg-white rounded-xl border border-slate-200 p-16 text-center">
-          <div className="text-6xl mb-4">🔍</div>
-          <h3 className="text-2xl font-bold text-slate-900 mb-2">Aucune moto trouvée</h3>
-          <p className="text-slate-600 mb-6">Modifiez vos filtres ou ajoutez une nouvelle moto</p>
+      {/* RIGHT DRAWER */}
+      <motion.div
+        initial={false}
+        animate={{ x: panelOpen ? 0 : 420 }}
+        transition={{ type: "spring", stiffness: 260, damping: 28 }}
+        className="fixed top-0 right-0 h-full w-[420px] bg-white border-l border-slate-200 shadow-[0_25px_80px_rgba(2,6,23,0.18)] z-50"
+      >
+        <div className="p-6 border-b border-slate-200 flex items-start justify-between">
+          <div>
+            <div className="text-xs font-extrabold text-slate-500">Formulaire</div>
+            <div className="text-xl font-bold text-slate-900">
+              {editing ? "Modifier la moto" : "Ajouter une moto"}
+            </div>
+          </div>
           <button
-            onClick={() => setShowAddModal(true)}
-            className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg transition-colors"
+            className="h-10 w-10 rounded-xl ring-1 ring-slate-200 hover:bg-slate-50 font-black"
+            onClick={() => setPanelOpen(false)}
           >
-            Ajouter une moto
+            ✕
           </button>
         </div>
-      )}
 
-      {/* Add/Edit Motorcycle Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center text-2xl">
-                  🏍️
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-slate-900">Ajouter une moto</h2>
-                  <p className="text-slate-600">Ajoutez une nouvelle moto à votre stock</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 space-y-6">
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Company */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Fournisseur <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={motoForm.company}
-                    onChange={(e) => handleFormChange('company', e.target.value)}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="Zimota">Zimota</option>
-                    <option value="Forza">Forza</option>
-                    <option value="GSM">GSM</option>
-                    <option value="Sanya">Sanya</option>
-                  </select>
-                </div>
-
-                {/* Brand */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Marque <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    value={motoForm.brand}
-                    onChange={(e) => handleFormChange('brand', e.target.value)}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Sélectionner</option>
-                    {brands.filter(b => b !== 'all').map(brand => (
-                      <option key={brand} value={brand}>{brand}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Model */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Modèle <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={motoForm.model}
-                    onChange={(e) => handleFormChange('model', e.target.value)}
-                    placeholder="R125, CBR 250..."
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Year */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Année
-                  </label>
-                  <input
-                    type="number"
-                    value={motoForm.year}
-                    onChange={(e) => handleFormChange('year', e.target.value)}
-                    min="2020"
-                    max="2026"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Color */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Couleur
-                  </label>
-                  <select
-                    value={motoForm.color}
-                    onChange={(e) => handleFormChange('color', e.target.value)}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Sélectionner</option>
-                    {colors.map(color => (
-                      <option key={color} value={color}>{color}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Purchase Price */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Prix d'achat (TND) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={motoForm.purchasePrice}
-                    onChange={(e) => handleFormChange('purchasePrice', e.target.value)}
-                    placeholder="10500"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Selling Price */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Prix de vente (TND) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    value={motoForm.price}
-                    onChange={(e) => handleFormChange('price', e.target.value)}
-                    placeholder="12500"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                  {motoForm.price && motoForm.purchasePrice && (
-                    <p className="text-xs text-green-600 mt-1 font-semibold">
-                      Marge: +{(motoForm.price - motoForm.purchasePrice).toLocaleString()} TND
-                      ({(((motoForm.price - motoForm.purchasePrice) / motoForm.purchasePrice) * 100).toFixed(1)}%)
-                    </p>
-                  )}
-                </div>
-
-                {/* Stock */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Quantité en stock
-                  </label>
-                  <input
-                    type="number"
-                    value={motoForm.stock}
-                    onChange={(e) => handleFormChange('stock', e.target.value)}
-                    min="1"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Chassis Number */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Numéro de châssis <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={motoForm.chassisNumber}
-                    onChange={(e) => handleFormChange('chassisNumber', e.target.value.toUpperCase())}
-                    placeholder="JYARN23E00A000123"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
-                  />
-                </div>
-
-                {/* Engine Number */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Numéro moteur
-                  </label>
-                  <input
-                    type="text"
-                    value={motoForm.engineNumber}
-                    onChange={(e) => handleFormChange('engineNumber', e.target.value.toUpperCase())}
-                    placeholder="E4G15000123"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono"
-                  />
-                </div>
-
-                {/* Arrival Date */}
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Date d'arrivée
-                  </label>
-                  <input
-                    type="date"
-                    value={motoForm.arrivalDate}
-                    onChange={(e) => handleFormChange('arrivalDate', e.target.value)}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Features */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Caractéristiques (séparées par des virgules)
-                  </label>
-                  <input
-                    type="text"
-                    value={motoForm.features}
-                    onChange={(e) => handleFormChange('features', e.target.value)}
-                    placeholder="ABS, LED Lights, Digital Display"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                </div>
-
-                {/* Description */}
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={motoForm.description}
-                    onChange={(e) => handleFormChange('description', e.target.value)}
-                    placeholder="Sportive et agile, parfaite pour la ville..."
-                    rows={3}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
-                  />
-                </div>
-
-              </div>
-
-            </div>
-
-            {/* Modal Footer */}
-            <div className="sticky bottom-0 bg-white border-t border-slate-200 p-6 flex items-center justify-end gap-3">
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="px-6 py-3 border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold rounded-lg transition-colors"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={handleAddMoto}
-                className="px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold rounded-lg shadow-xl transition-all transform hover:-translate-y-0.5"
-              >
-                Ajouter la moto
-              </button>
-            </div>
-
+        <div className="p-6 space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-slate-600">Fournisseur</label>
+            <select
+              className="mt-2 w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+              value={form.company}
+              onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))}
+            >
+              {COMPANIES.filter((c) => c !== "all").map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
 
-      {/* View Motorcycle Detail Modal */}
-      {selectedMoto && !showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6 overflow-y-auto">
-          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-gradient-to-br from-blue-600 to-cyan-600 text-white p-8 flex items-start justify-between">
-              <div>
-                <h2 className="text-3xl font-black mb-2">
-                  {selectedMoto.brand} {selectedMoto.model}
-                </h2>
-                <p className="text-blue-100">{selectedMoto.year} • {selectedMoto.color}</p>
-              </div>
-              <button
-                onClick={() => setSelectedMoto(null)}
-                className="p-2 hover:bg-white/20 rounded-lg transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-8 space-y-6">
-              
-              {/* Price & Status */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-blue-50 rounded-xl p-6 border border-blue-200">
-                  <p className="text-sm text-blue-700 mb-1">Prix de vente</p>
-                  <p className="text-3xl font-black text-blue-900">
-                    {selectedMoto.price.toLocaleString()} TND
-                  </p>
-                </div>
-                <div className={`rounded-xl p-6 border ${getStatusInfo(selectedMoto.status).bgClass}`}>
-                  <p className="text-sm text-slate-600 mb-1">Statut</p>
-                  <p className={`text-2xl font-black ${getStatusInfo(selectedMoto.status).textClass}`}>
-                    {getStatusInfo(selectedMoto.status).icon} {getStatusInfo(selectedMoto.status).label}
-                  </p>
-                </div>
-              </div>
-
-              {/* Details Grid */}
-              <div className="bg-slate-50 rounded-xl p-6 space-y-4">
-                <h3 className="font-bold text-slate-900 text-lg mb-4">📋 Détails techniques</h3>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-slate-500 mb-1">Fournisseur</p>
-                    <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold border ${getCompanyColor(selectedMoto.company)}`}>
-                      {selectedMoto.company}
-                    </span>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 mb-1">Stock</p>
-                    <p className="font-bold text-slate-900">{selectedMoto.stock} unité(s)</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 mb-1">Numéro châssis</p>
-                    <p className="font-mono text-sm font-semibold text-slate-900">{selectedMoto.chassisNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 mb-1">Numéro moteur</p>
-                    <p className="font-mono text-sm font-semibold text-slate-900">{selectedMoto.engineNumber}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 mb-1">Prix d'achat</p>
-                    <p className="font-bold text-slate-900">{selectedMoto.purchasePrice.toLocaleString()} TND</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 mb-1">Marge bénéficiaire</p>
-                    <p className="font-bold text-green-600">
-                      +{(selectedMoto.price - selectedMoto.purchasePrice).toLocaleString()} TND
-                      ({(((selectedMoto.price - selectedMoto.purchasePrice) / selectedMoto.purchasePrice) * 100).toFixed(1)}%)
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Features */}
-              <div>
-                <h3 className="font-bold text-slate-900 text-lg mb-3">✨ Caractéristiques</h3>
-                <div className="flex flex-wrap gap-2">
-                  {selectedMoto.features.map((feature, idx) => (
-                    <span key={idx} className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-semibold">
-                      {feature}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Description */}
-              {selectedMoto.description && (
-                <div>
-                  <h3 className="font-bold text-slate-900 text-lg mb-3">📝 Description</h3>
-                  <p className="text-slate-700 leading-relaxed">{selectedMoto.description}</p>
-                </div>
-              )}
-
-              {/* Timeline */}
-              <div>
-                <h3 className="font-bold text-slate-900 text-lg mb-3">📅 Historique</h3>
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      📦
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-900">Arrivée en stock</p>
-                      <p className="text-sm text-slate-600">{selectedMoto.arrivalDate}</p>
-                    </div>
-                  </div>
-                  {selectedMoto.reservedDate && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        🔒
-                      </div>
-                      <div>
-                        <p className="font-semibold text-slate-900">Réservée par {selectedMoto.reservedBy}</p>
-                        <p className="text-sm text-slate-600">{selectedMoto.reservedDate}</p>
-                      </div>
-                    </div>
-                  )}
-                  {selectedMoto.soldDate && (
-                    <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        🎉
-                      </div>
-                      <div>
-                        <p className="font-semibold text-slate-900">Vendue à {selectedMoto.soldTo}</p>
-                        <p className="text-sm text-slate-600">{selectedMoto.soldDate}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex items-center gap-3 pt-4">
-                {selectedMoto.status === 'in_stock' && (
-                  <>
-                    <button className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors">
-                      📝 Créer facture
-                    </button>
-                    <button className="flex-1 py-3 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg transition-colors">
-                      🔒 Réserver
-                    </button>
-                  </>
-                )}
-                <button className="py-3 px-6 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg transition-colors">
-                  ✏️ Modifier
-                </button>
-                <button className="py-3 px-6 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors">
-                  🗑️ Supprimer
-                </button>
-              </div>
-
-            </div>
-
+          <div>
+            <label className="text-xs font-semibold text-slate-600">Marque</label>
+            <select
+              className="mt-2 w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+              value={form.brand}
+              onChange={(e) => setForm((p) => ({ ...p, brand: e.target.value }))}
+            >
+              {BRANDS.filter((b) => b !== "all").map((b) => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
           </div>
-        </div>
-      )}
 
+          <div>
+            <label className="text-xs font-semibold text-slate-600">Modèle</label>
+            <input
+              className="mt-2 w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+              value={form.model}
+              onChange={(e) => setForm((p) => ({ ...p, model: e.target.value }))}
+              placeholder="R125, Ninja 300..."
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-600">Nombre</label>
+              <input
+                type="number"
+                min={0}
+                className="mt-2 w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                value={form.qty}
+                onChange={(e) => setForm((p) => ({ ...p, qty: e.target.value }))}
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600">Prix achat</label>
+              <input
+                type="number"
+                min={0}
+                className="mt-2 w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+                value={form.purchasePrice}
+                onChange={(e) => setForm((p) => ({ ...p, purchasePrice: e.target.value }))}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-600">Prix vente</label>
+            <input
+              type="number"
+              min={0}
+              className="mt-2 w-full px-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500"
+              value={form.salePrice}
+              onChange={(e) => setForm((p) => ({ ...p, salePrice: e.target.value }))}
+            />
+          </div>
+
+          {form.purchasePrice !== "" &&
+            form.salePrice !== "" &&
+            Number(form.purchasePrice) > 0 && (
+              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                <p className="text-xs text-slate-500 font-semibold">Marge estimée</p>
+                <p className="text-lg font-bold text-slate-900 mt-1">
+                  {money(Number(form.salePrice) - Number(form.purchasePrice))}
+                </p>
+              </div>
+            )}
+        </div>
+
+        <div className="p-6 border-t border-slate-200 flex items-center justify-end gap-2">
+          <SoftBtn variant="default" onClick={() => setPanelOpen(false)} disabled={saving}>
+            Annuler
+          </SoftBtn>
+          <SoftBtn variant="primary" onClick={save} disabled={saving}>
+            {saving ? "..." : "Enregistrer"}
+          </SoftBtn>
+        </div>
+      </motion.div>
+
+      {/* Backdrop */}
+      {panelOpen && (
+        <div className="fixed inset-0 bg-black/20 z-40" onClick={() => setPanelOpen(false)} />
+      )}
     </div>
   );
 }
-
-export default MotorcyclesPage;

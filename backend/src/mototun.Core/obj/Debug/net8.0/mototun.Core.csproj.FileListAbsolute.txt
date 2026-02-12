@@ -9,3 +9,4 @@ C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Core\obj\Debug\net8.0\motot
 C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Core\obj\Debug\net8.0\refint\mototun.Core.dll
 C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Core\obj\Debug\net8.0\mototun.Core.pdb
 C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Core\obj\Debug\net8.0\ref\mototun.Core.dll
+C:\Users\ASUS\Desktop\Mototun.tn\backend\src\mototun.Core\obj\Debug\net8.0\mototun.Core.sourcelink.json
