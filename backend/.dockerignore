@@ -1,0 +1,58 @@
+.git
+.github
+.vs
+.vscode
+.idea
+
+# Build and test output
+bin
+obj
+TestResults
+artifacts
+out
+**/bin
+**/obj
+**/TestResults
+**/coverage
+**/.nyc_output
+
+# Frontend and package-manager artifacts
+node_modules
+dist
+dist-ssr
+**/node_modules
+**/dist
+**/dist-ssr
+**/.vite
+**/.vercel
+
+# Tests, tools, and local notes not needed for backend image
+tests
+tools
+README.md
+*.md
+tmpclaude-*
+
+# Runtime storage and uploaded files
+Storage
+src/mototun.API/Storage
+
+# Local env and config overrides
+.env
+.env.*
+src/mototun.API/appsettings.Local.json
+src/mototun.API/appsettings.Production.json
+
+# Logs and archives
+*.log
+*.zip
+
+# Certificates and private keys
+*.pem
+*.key
+*.pfx
+*.crt
+*.cer
+
+# Docker metadata
+Dockerfile*

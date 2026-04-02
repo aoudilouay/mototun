@@ -1,0 +1,73 @@
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vs/
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.swp
+*.tmp
+*.bak
+
+# .NET build artifacts
+**/bin/
+**/obj/
+**/TestResults/
+*.coverage
+*.trx
+
+# Node build artifacts
+**/node_modules/
+**/dist/
+**/dist-ssr/
+**/.vite/
+**/playwright-report/
+**/test-results/
+**/coverage/
+**/.nyc_output/
+**/.vercel/
+
+# Python / tooling artifacts
+**/.venv/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Local build/work dirs
+**/build_tmp/
+**/artifacts/
+backend/out/
+*.zip
+backend/tools/ocr-service/.venv/
+
+# Logs and env files
+*.log
+.env
+.env.*
+!.env.example
+!**/.env.example
+!**/.env.production.example
+!**/.env.*.example
+
+# Secret-bearing certificates and deploy exports
+*.pem
+*.key
+*.pfx
+*.crt
+*.cer
+*.publishsettings
+
+# Sensitive config overrides (production secrets go in environment variables)
+**/appsettings.Local.json
+**/appsettings.Production.json
+
+# User-uploaded files and runtime storage
+**/Storage/ClientPortal/
+**/Storage/Avatars/
+**/Storage/InvoicePdfSettings/
+
+# Temp working directories
+tmpclaude-*
