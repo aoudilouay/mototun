@@ -1,9 +1,12 @@
+import { startTransition, useCallback, useRef, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
-import { useCallback, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import BrandLogo from '../components/BrandLogo';
 import CloudflareTurnstile from '../components/CloudflareTurnstile';
+import { prefetchDataForRole } from '../lib/appQueries';
+import { preloadRouteModule } from '../lib/routePreloaders';
 
 const TURNSTILE_REQUIRED_MESSAGE = 'Please complete the security challenge.';
 
@@ -18,28 +21,31 @@ function LoginPage() {
   const turnstileRef = useRef(null);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { t } = useI18n();
   const turnstileSiteKey = (import.meta.env.VITE_CLOUDFLARE_TURNSTILE_SITE_KEY || '').trim();
   const turnstileEnabled = turnstileSiteKey.length > 0;
 
   const navigateByRole = useCallback((userData) => {
+    let nextPath = '';
+
     if (userData.role === 'Revendeur') {
-      navigate('/revendeur/dashboard');
+      nextPath = '/revendeur/dashboard';
+    } else if (userData.role === 'Fournisseur') {
+      nextPath = '/fournisseur/dashboard';
+    } else if (userData.role === 'Admin') {
+      nextPath = '/admin/users';
+    } else {
+      setError(t('login.unauthorized'));
       return;
     }
 
-    if (userData.role === 'Fournisseur') {
-      navigate('/fournisseur/dashboard');
-      return;
-    }
-
-    if (userData.role === 'Admin') {
-      navigate('/admin/users');
-      return;
-    }
-
-    setError(t('login.unauthorized'));
-  }, [navigate, t]);
+    void prefetchDataForRole(queryClient, userData.role);
+    void preloadRouteModule(nextPath);
+    startTransition(() => {
+      navigate(nextPath);
+    });
+  }, [navigate, queryClient, t]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

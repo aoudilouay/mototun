@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
@@ -20,16 +21,15 @@ import {
 import api from '../../api/axios';
 import LiveCalendarPanel from '../../components/LiveCalendarPanel';
 import { useI18n } from '../../context/I18nContext';
+import {
+  clientsQueryOptions,
+  getApiErrorMessage,
+  motorcyclesQueryOptions,
+  revendeurFournisseursDirectoryQueryOptions,
+  revendeurInvoicesQueryOptions,
+} from '../../lib/appQueries';
 
 const SALES_TARGET_MONTH = 20;
-
-function extractApiData(response) {
-  return Array.isArray(response?.data?.data) ? response.data.data : [];
-}
-
-function getApiErrorMessage(error, fallbackMessage) {
-  return error?.response?.data?.message || error?.response?.data?.Message || fallbackMessage;
-}
 
 function parseDate(value) {
   if (!value) return null;
@@ -239,41 +239,42 @@ function getActionIcon(badgeClass) {
 
 function DashboardPage() {
   const [timeRange, setTimeRange] = useState('month');
-  const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState('');
-  const [error, setError] = useState('');
-  const [invoices, setInvoices] = useState([]);
-  const [clients, setClients] = useState([]);
-  const [motorcycles, setMotorcycles] = useState([]);
-  const [fournisseurs, setFournisseurs] = useState([]);
   const { t, locale } = useI18n();
+  const invoicesQuery = useQuery(revendeurInvoicesQueryOptions());
+  const clientsQuery = useQuery(clientsQueryOptions());
+  const motorcyclesQuery = useQuery(motorcyclesQueryOptions());
+  const fournisseursQuery = useQuery(revendeurFournisseursDirectoryQueryOptions());
 
-  const loadDashboard = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError('');
+  const invoices = useMemo(() => invoicesQuery.data ?? [], [invoicesQuery.data]);
+  const clients = useMemo(() => clientsQuery.data ?? [], [clientsQuery.data]);
+  const motorcycles = useMemo(() => motorcyclesQuery.data ?? [], [motorcyclesQuery.data]);
+  const fournisseurs = useMemo(() => fournisseursQuery.data ?? [], [fournisseursQuery.data]);
 
-      const [invoiceRes, clientsRes, motorcyclesRes, fournisseursRes] = await Promise.all([
-        api.get('/Invoices'),
-        api.get('/Clients'),
-        api.get('/Motorcycles'),
-        api.get('/partnership-requests/directory/fournisseurs')
-      ]);
+  const loading = invoicesQuery.isLoading && clientsQuery.isLoading && motorcyclesQuery.isLoading && fournisseursQuery.isLoading;
+  const invoicesReady = Boolean(invoicesQuery.data);
+  const clientsReady = Boolean(clientsQuery.data);
+  const motorcyclesReady = Boolean(motorcyclesQuery.data);
+  const fournisseursReady = Boolean(fournisseursQuery.data);
+  const invoiceDrivenLoading = !invoicesReady;
+  const clientDrivenLoading = !clientsReady;
+  const highlightLoading = !invoicesReady || !motorcyclesReady || !fournisseursReady;
+  const activityLoading = !invoicesReady || !clientsReady || !motorcyclesReady;
+  const error = (() => {
+    const queryError = [invoicesQuery.error, clientsQuery.error, motorcyclesQuery.error, fournisseursQuery.error]
+      .find(Boolean);
 
-      setInvoices(extractApiData(invoiceRes));
-      setClients(extractApiData(clientsRes));
-      setMotorcycles(extractApiData(motorcyclesRes));
-      setFournisseurs(extractApiData(fournisseursRes));
-    } catch (requestError) {
-      setError(getApiErrorMessage(requestError, 'Impossible de charger le dashboard.'));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    return queryError ? getApiErrorMessage(queryError, 'Certaines informations du dashboard n ont pas pu etre chargees.') : '';
+  })();
 
-  useEffect(() => {
-    loadDashboard();
-  }, [loadDashboard]);
+  const refreshDashboard = useCallback(async () => {
+    await Promise.allSettled([
+      invoicesQuery.refetch(),
+      clientsQuery.refetch(),
+      motorcyclesQuery.refetch(),
+      fournisseursQuery.refetch(),
+    ]);
+  }, [clientsQuery, fournisseursQuery, invoicesQuery, motorcyclesQuery]);
 
   const handleExport = useCallback(async (type) => {
     try {
@@ -620,7 +621,7 @@ function DashboardPage() {
             </div>
             <div className="text-left sm:text-right">
               <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{t('dashboard.availableFunds')}</p>
-              {loading ? (
+              {invoiceDrivenLoading ? (
                 <div className="mt-1 h-9 w-40 animate-pulse rounded-lg bg-white/10" />
               ) : (
                 <p className="mt-1 text-3xl font-black tracking-tight">{formatMoney(stats.revenueCurrent)}</p>
@@ -670,11 +671,11 @@ function DashboardPage() {
               <option value="year">{t('dashboard.select.year')}</option>
             </select>
             <button
-              onClick={loadDashboard}
+              onClick={refreshDashboard}
               disabled={loading}
               className="inline-flex items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm font-semibold text-white backdrop-blur-sm transition hover:bg-white/20 disabled:opacity-50"
             >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-3.5 w-3.5 ${invoicesQuery.isFetching || clientsQuery.isFetching || motorcyclesQuery.isFetching || fournisseursQuery.isFetching ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">{t('common.refresh')}</span>
             </button>
             <button
@@ -718,7 +719,7 @@ function DashboardPage() {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-wider text-blue-400">Ventes</p>
-              {loading ? (
+              {invoiceDrivenLoading ? (
                 <div className="h-5 w-12 animate-pulse rounded bg-blue-100" />
               ) : (
                 <p className="text-lg font-bold text-blue-700 leading-tight">{stats.salesCurrent}</p>
@@ -743,7 +744,7 @@ function DashboardPage() {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">Clients actifs</p>
-              {loading ? (
+              {clientDrivenLoading ? (
                 <div className="h-5 w-12 animate-pulse rounded bg-slate-100" />
               ) : (
                 <p className="text-lg font-bold text-slate-900 leading-tight">{stats.activeClientsCurrent}</p>
@@ -768,7 +769,7 @@ function DashboardPage() {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-wider text-amber-500">Dossiers en cours</p>
-              {loading ? (
+              {invoiceDrivenLoading ? (
                 <div className="h-5 w-12 animate-pulse rounded bg-amber-100" />
               ) : (
                 <p className="text-lg font-bold text-amber-700 leading-tight">{stats.pendingCurrent}</p>
@@ -793,7 +794,7 @@ function DashboardPage() {
             </span>
             <div className="min-w-0">
               <p className="text-[11px] font-medium uppercase tracking-wider text-emerald-500">CA periode</p>
-              {loading ? (
+              {invoiceDrivenLoading ? (
                 <div className="h-5 w-20 animate-pulse rounded bg-emerald-100" />
               ) : (
                 <p className="text-sm font-bold text-emerald-700 leading-tight truncate">{formatMoney(stats.revenueCurrent)}</p>
@@ -830,7 +831,7 @@ function DashboardPage() {
               </div>
               <div className="sm:text-right">
                 <p className="text-xs font-medium uppercase tracking-wider text-slate-400">{t('dashboard.availableFunds')}</p>
-                {loading ? (
+                {invoiceDrivenLoading ? (
                   <div className="mt-1 h-8 w-36 animate-pulse rounded-lg bg-slate-100" />
                 ) : (
                   <p className="mt-0.5 text-2xl font-black text-slate-900">{formatMoney(stats.revenueCurrent)}</p>
@@ -943,7 +944,7 @@ function DashboardPage() {
                   </span>
                   <div className="min-w-0">
                     <p className="text-[11px] font-medium uppercase tracking-wider text-slate-400">{card.title}</p>
-                    {loading ? (
+                    {highlightLoading ? (
                       <div className="h-5 w-12 animate-pulse rounded bg-slate-100" />
                     ) : (
                       <p className="text-lg font-bold text-slate-900 leading-tight">{card.value}</p>
@@ -981,7 +982,7 @@ function DashboardPage() {
           </div>
 
           <div className="p-4 sm:p-5">
-            {loading ? (
+            {activityLoading ? (
               <div className="space-y-2">
                 {[1, 2, 3, 4, 5].map((item) => (
                   <div key={item} className="h-14 animate-pulse rounded-xl bg-slate-100" />
@@ -1099,7 +1100,7 @@ function DashboardPage() {
         title="Calendrier live"
         subtitle="Vue calendrier en direct de vos actions et rappels."
         events={calendarEvents}
-        loading={loading}
+        loading={activityLoading}
         primary={{ label: 'Valeur du jour', value: formatMoney(expensePanel.daily) }}
         secondary={{ label: 'Actions aujourd hui', value: String(todayActionCount) }}
         accent="teal"

@@ -1,5 +1,12 @@
-import { useDeferredValue, useEffect, useMemo, useState } from 'react';
+import { useDeferredValue, useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from '../../api/axios';
+import {
+  clientsQueryOptions,
+  getApiErrorMessage,
+  normalizeClientRecord,
+  queryKeys,
+} from '../../lib/appQueries';
 
 const CLIENT_STATUS_META = {
   active: {
@@ -12,31 +19,14 @@ const CLIENT_STATUS_META = {
   }
 };
 
-function normalizeClientStatus(rawStatus) {
-  if (typeof rawStatus === 'string') {
-    const normalized = rawStatus.trim().toLowerCase();
-    return normalized === 'missing' ? 'missing' : 'active';
-  }
-
-  return Number(rawStatus) === 1 ? 'missing' : 'active';
-}
-
-function normalizeClient(rawClient) {
-  return {
-    ...rawClient,
-    status: normalizeClientStatus(rawClient?.status)
-  };
-}
-
 function ClientsPage() {
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const deferredSearchTerm = useDeferredValue(searchTerm);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
-  const [clients, setClients] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [actionError, setActionError] = useState('');
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -47,25 +37,95 @@ function ClientsPage() {
     city: ''
   });
 
-  useEffect(() => {
-    fetchClients();
-  }, []);
+  const clientsQuery = useQuery(clientsQueryOptions());
+  const clients = useMemo(() => clientsQuery.data ?? [], [clientsQuery.data]);
+  const loading = clientsQuery.isLoading;
 
-  const fetchClients = async () => {
-    setLoading(true);
-    setError('');
+  const updateClientMutation = useMutation({
+    mutationFn: async ({ clientId, payload }) => {
+      const response = await axios.put(`/Clients/${clientId}`, payload);
+      return normalizeClientRecord(response.data.data);
+    },
+    onMutate: async ({ clientId, payload }) => {
+      setActionError('');
+      await queryClient.cancelQueries({ queryKey: queryKeys.clients.all });
+      const previousClients = queryClient.getQueryData(queryKeys.clients.all) || [];
 
-    try {
-      const response = await axios.get('/Clients');
-      if (response.data.success) {
-        setClients((response.data.data || []).map(normalizeClient));
+      queryClient.setQueryData(queryKeys.clients.all, (current = []) =>
+        current.map((client) => (
+          client.clientId === clientId
+            ? normalizeClientRecord({ ...client, ...payload, clientId })
+            : client
+        ))
+      );
+
+      return { previousClients };
+    },
+    onError: (err, _variables, context) => {
+      if (context?.previousClients) {
+        queryClient.setQueryData(queryKeys.clients.all, context.previousClients);
       }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Erreur lors du chargement des clients');
-    } finally {
-      setLoading(false);
+      setActionError(getApiErrorMessage(err, 'Erreur lors de la modification'));
+    },
+    onSuccess: (updatedClient) => {
+      queryClient.setQueryData(queryKeys.clients.all, (current = []) =>
+        current.map((client) => (
+          client.clientId === updatedClient.clientId ? updatedClient : client
+        ))
+      );
+      setSelectedClient(updatedClient);
+      setShowEditModal(false);
     }
-  };
+  });
+
+  const deleteClientMutation = useMutation({
+    mutationFn: async (clientId) => {
+      const response = await axios.delete(`/Clients/${clientId}`);
+      return response.data.data ? normalizeClientRecord(response.data.data) : null;
+    },
+    onMutate: async (clientId) => {
+      setActionError('');
+      await queryClient.cancelQueries({ queryKey: queryKeys.clients.all });
+      const previousClients = queryClient.getQueryData(queryKeys.clients.all) || [];
+      const previousClient = previousClients.find((client) => client.clientId === clientId) || null;
+
+      queryClient.setQueryData(queryKeys.clients.all, (current = []) =>
+        current.map((client) => (
+          client.clientId === clientId ? { ...client, status: 'missing' } : client
+        ))
+      );
+
+      return { previousClients, previousClient };
+    },
+    onError: (err, _clientId, context) => {
+      if (context?.previousClients) {
+        queryClient.setQueryData(queryKeys.clients.all, context.previousClients);
+      }
+      setActionError(getApiErrorMessage(err, 'Erreur lors du changement de statut'));
+    },
+    onSuccess: (updatedClient, clientId, context) => {
+      const nextClient = updatedClient || (context?.previousClient ? { ...context.previousClient, status: 'missing' } : null);
+      if (!nextClient) return;
+
+      queryClient.setQueryData(queryKeys.clients.all, (current = []) =>
+        current.map((client) => (
+          client.clientId === clientId ? nextClient : client
+        ))
+      );
+
+      setSelectedClient((prev) => {
+        if (!prev || prev.clientId !== clientId) {
+          return prev;
+        }
+
+        return nextClient;
+      });
+    }
+  });
+
+  const submittingClient = updateClientMutation.isPending || deleteClientMutation.isPending;
+
+  const error = actionError || (clientsQuery.isError ? getApiErrorMessage(clientsQuery.error, 'Erreur lors du chargement des clients') : '');
 
   const filteredClients = useMemo(() => {
     const s = deferredSearchTerm.toLowerCase().trim();
@@ -147,11 +207,11 @@ function ClientsPage() {
 
   const handleExportClients = () => {
     if (filteredClients.length === 0) {
-      setError('Aucun client a exporter.');
+      setActionError('Aucun client a exporter.');
       return;
     }
 
-    setError('');
+    setActionError('');
 
     const headers = [
       'Nom complet',
@@ -213,26 +273,13 @@ function ClientsPage() {
       return;
     }
 
-    setLoading(true);
-    setError('');
-
     try {
-      const response = await axios.put(`/Clients/${selectedClient.clientId}`, buildClientPayload());
-
-      if (response.data.success) {
-        const updatedClient = normalizeClient(response.data.data);
-
-        setClients((prev) =>
-          prev.map((client) => (client.clientId === selectedClient.clientId ? updatedClient : client))
-        );
-
-        setSelectedClient(updatedClient);
-        setShowEditModal(false);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Erreur lors de la modification');
-    } finally {
-      setLoading(false);
+      await updateClientMutation.mutateAsync({
+        clientId: selectedClient.clientId,
+        payload: buildClientPayload()
+      });
+    } catch {
+      // handled by mutation callbacks
     }
   };
 
@@ -241,52 +288,10 @@ function ClientsPage() {
       return;
     }
 
-    setLoading(true);
-    setError('');
-
     try {
-      const response = await axios.delete(`/Clients/${clientId}`);
-      if (response.data.success) {
-        const updatedClient = response.data.data
-          ? normalizeClient(response.data.data)
-          : null;
-
-        setClients((prev) =>
-          prev.map((client) => {
-            if (client.clientId !== clientId) {
-              return client;
-            }
-
-            if (updatedClient) {
-              return updatedClient;
-            }
-
-            return {
-              ...client,
-              status: 'missing'
-            };
-          })
-        );
-
-        setSelectedClient((prev) => {
-          if (!prev || prev.clientId !== clientId) {
-            return prev;
-          }
-
-          if (updatedClient) {
-            return updatedClient;
-          }
-
-          return {
-            ...prev,
-            status: 'missing'
-          };
-        });
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || 'Erreur lors du changement de statut');
-    } finally {
-      setLoading(false);
+      await deleteClientMutation.mutateAsync(clientId);
+    } catch {
+      // handled by mutation callbacks
     }
   };
 
@@ -886,10 +891,10 @@ function ClientsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={submittingClient}
                   className="flex-1 rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {loading ? 'Mise a jour...' : 'Mettre a jour'}
+                  {submittingClient ? 'Mise a jour...' : 'Mettre a jour'}
                 </button>
               </div>
             </form>

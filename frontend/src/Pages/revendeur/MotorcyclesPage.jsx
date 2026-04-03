@@ -1,4 +1,5 @@
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Toaster, toast } from "sonner";
 import {
   Plus,
@@ -23,6 +24,7 @@ import {
 } from "lucide-react";
 
 import axiosInstance from '../../api/axios';
+import { motorcyclesQueryOptions, queryKeys } from "../../lib/appQueries";
 
 const cn = (...xs) => xs.filter(Boolean).join(" ");
 
@@ -119,6 +121,7 @@ function toPayload(m) {
 }
 
 export default function MotorcyclesPage() {
+  const queryClient = useQueryClient();
   const [viewMode, setViewMode] = useState("grid");
   const [selected, setSelected] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
@@ -140,22 +143,17 @@ export default function MotorcyclesPage() {
     salePrice: "",
   });
 
-  const [motos, setMotos] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const motorcyclesQuery = useQuery(motorcyclesQueryOptions());
+  const motos = useMemo(() => motorcyclesQuery.data ?? [], [motorcyclesQuery.data]);
   const [saving, setSaving] = useState(false);
 
   // ---------------- API CALLS ----------------
   async function fetchMotos() {
-    setLoading(true);
     try {
-      const res = await axiosInstance.get("/Motorcycles");
-      const list = (res?.data?.data ?? []).map(fromApi);
-      setMotos(list);
+      await motorcyclesQuery.refetch();
     } catch (e) {
       console.error(e);
       toast.error("Erreur chargement motos");
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -174,9 +172,114 @@ export default function MotorcyclesPage() {
   }
   // -------------------------------------------
 
-  useEffect(() => {
-    fetchMotos();
-  }, []);
+  const createMotorcycleMutation = useMutation({
+    mutationFn: apiCreate,
+    onMutate: async (payload) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.motorcycles.all });
+      const previousMotos = queryClient.getQueryData(queryKeys.motorcycles.all) || [];
+      const tempId = `temp-${Date.now()}`;
+
+      queryClient.setQueryData(queryKeys.motorcycles.all, (current = []) => [
+        { id: tempId, ...payload },
+        ...current,
+      ]);
+
+      return { previousMotos, tempId };
+    },
+    onError: (error, _payload, context) => {
+      if (context?.previousMotos) {
+        queryClient.setQueryData(queryKeys.motorcycles.all, context.previousMotos);
+      }
+      console.error(error);
+      toast.error("Erreur enregistrement");
+    },
+    onSuccess: (createdMoto, _payload, context) => {
+      queryClient.setQueryData(queryKeys.motorcycles.all, (current = []) =>
+        current.map((moto) => (moto.id === context?.tempId ? createdMoto : moto))
+      );
+    },
+  });
+
+  const updateMotorcycleMutation = useMutation({
+    mutationFn: ({ id, payload }) => apiUpdate(id, payload),
+    onMutate: async ({ id, payload }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.motorcycles.all });
+      const previousMotos = queryClient.getQueryData(queryKeys.motorcycles.all) || [];
+
+      queryClient.setQueryData(queryKeys.motorcycles.all, (current = []) =>
+        current.map((moto) => (moto.id === id ? { ...moto, ...payload } : moto))
+      );
+
+      return { previousMotos };
+    },
+    onError: (error, _variables, context) => {
+      if (context?.previousMotos) {
+        queryClient.setQueryData(queryKeys.motorcycles.all, context.previousMotos);
+      }
+      console.error(error);
+      toast.error("Erreur enregistrement");
+    },
+    onSuccess: (updatedMoto) => {
+      queryClient.setQueryData(queryKeys.motorcycles.all, (current = []) =>
+        current.map((moto) => (moto.id === updatedMoto.id ? updatedMoto : moto))
+      );
+    },
+  });
+
+  const deleteMotorcycleMutation = useMutation({
+    mutationFn: apiDelete,
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.motorcycles.all });
+      const previousMotos = queryClient.getQueryData(queryKeys.motorcycles.all) || [];
+      const previousSelected = selected;
+
+      queryClient.setQueryData(queryKeys.motorcycles.all, (current = []) =>
+        current.filter((moto) => moto.id !== id)
+      );
+      setSelected((current) => current.filter((value) => value !== id));
+
+      return { previousMotos, previousSelected };
+    },
+    onError: (error, _id, context) => {
+      if (context?.previousMotos) {
+        queryClient.setQueryData(queryKeys.motorcycles.all, context.previousMotos);
+      }
+      if (context?.previousSelected) {
+        setSelected(context.previousSelected);
+      }
+      console.error(error);
+      toast.error("Suppression echouee");
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids) => {
+      await Promise.all(ids.map((id) => apiDelete(id)));
+      return ids;
+    },
+    onMutate: async (ids) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.motorcycles.all });
+      const previousMotos = queryClient.getQueryData(queryKeys.motorcycles.all) || [];
+      const previousSelected = selected;
+
+      queryClient.setQueryData(queryKeys.motorcycles.all, (current = []) =>
+        current.filter((moto) => !ids.includes(moto.id))
+      );
+      setSelected([]);
+
+      return { previousMotos, previousSelected };
+    },
+    onError: (error, _ids, context) => {
+      if (context?.previousMotos) {
+        queryClient.setQueryData(queryKeys.motorcycles.all, context.previousMotos);
+      }
+      if (context?.previousSelected) {
+        setSelected(context.previousSelected);
+      }
+      console.error(error);
+      toast.error("Suppression partielle/echouee");
+    },
+  });
 
   const filtered = useMemo(() => {
     const q = deferredSearchTerm.trim().toLowerCase();
@@ -270,35 +373,26 @@ export default function MotorcyclesPage() {
     setSaving(true);
     try {
       if (!editing) {
-        const created = await apiCreate(toPayload(payload));
-        setMotos((prev) => [created, ...prev]);
+        await createMotorcycleMutation.mutateAsync(toPayload(payload));
         toast.success("Moto ajoutee");
       } else {
-        const updated = await apiUpdate(editing.id, toPayload(payload));
-        setMotos((prev) => prev.map((x) => (x.id === editing.id ? updated : x)));
+        await updateMotorcycleMutation.mutateAsync({ id: editing.id, payload: toPayload(payload) });
         toast.success("Moto modifiee");
       }
       setPanelOpen(false);
-    } catch (e) {
-      console.error(e);
-      toast.error("Erreur enregistrement");
+    } catch {
+      // handled by mutation callbacks
     } finally {
       setSaving(false);
     }
   }
 
   async function remove(id) {
-    const old = motos;
-    setMotos((prev) => prev.filter((x) => x.id !== id));
-    setSelected((prev) => prev.filter((x) => x !== id));
-
     try {
-      await apiDelete(id);
+      await deleteMotorcycleMutation.mutateAsync(id);
       toast.success("Moto supprimee");
-    } catch (e) {
-      console.error(e);
-      setMotos(old);
-      toast.error("Suppression echouee");
+    } catch {
+      // handled by mutation callbacks
     }
   }
 
@@ -306,17 +400,11 @@ export default function MotorcyclesPage() {
     const ids = [...selected];
     if (ids.length === 0) return;
 
-    const old = motos;
-    setMotos((prev) => prev.filter((x) => !ids.includes(x.id)));
-    setSelected([]);
-
     try {
-      await Promise.all(ids.map((id) => apiDelete(id)));
+      await bulkDeleteMutation.mutateAsync(ids);
       toast.success("Suppression terminee");
-    } catch (e) {
-      console.error(e);
-      setMotos(old);
-      toast.error("Suppression partielle/echouee");
+    } catch {
+      // handled by mutation callbacks
     }
   }
 
@@ -500,11 +588,11 @@ export default function MotorcyclesPage() {
             {/* Refresh */}
             <button
               onClick={fetchMotos}
-              disabled={loading}
+              disabled={motorcyclesQuery.isFetching}
               className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-400 shadow-sm transition hover:bg-slate-50 hover:text-slate-600 disabled:opacity-50"
               title="Rafraichir"
             >
-              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+              <RefreshCw className={cn("h-4 w-4", motorcyclesQuery.isFetching && "animate-spin")} />
             </button>
           </div>
 

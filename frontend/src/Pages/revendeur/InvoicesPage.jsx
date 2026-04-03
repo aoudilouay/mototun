@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertCircle,
   ArrowRight,
@@ -22,6 +23,13 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import api from '../../api/axios';
+import {
+  clientsQueryOptions,
+  motorcyclesQueryOptions,
+  queryKeys,
+  revendeurInvoicesQueryOptions,
+} from '../../lib/appQueries';
+import { preloadRouteModule } from '../../lib/routePreloaders';
 
 const DOCUMENT_FIELDS = [
   { key: 'facture', type: 3, label: 'Facture externe', hint: 'Obligatoire. Chargez la facture creee dans votre systeme actuel.', required: true, icon: FileText, accent: 'from-blue-600 to-cyan-500' },
@@ -31,10 +39,6 @@ const DOCUMENT_FIELDS = [
 ];
 
 const EMPTY_UPLOADS = { facture: null, cinFront: null, cinBack: null, declaration: null };
-
-function extractApiData(response) {
-  return Array.isArray(response?.data?.data) ? response.data.data : [];
-}
 
 function getApiErrorMessage(error, fallbackMessage) {
   return error?.response?.data?.message || error?.response?.data?.Message || fallbackMessage;
@@ -240,53 +244,42 @@ function NextStepCard({ index, title, description, tone = 'default' }) {
 
 function InvoicesPage() {
   const navigate = useNavigate();
-  const [clients, setClients] = useState([]);
-  const [stockMotorcycles, setStockMotorcycles] = useState([]);
+  const queryClient = useQueryClient();
   const [selectedClientId, setSelectedClientId] = useState('');
   const [selectedStockId, setSelectedStockId] = useState('');
   const [sale, setSale] = useState(createEmptySale);
   const [uploads, setUploads] = useState(EMPTY_UPLOADS);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        const [clientsRes, stockRes] = await Promise.all([api.get('/Clients'), api.get('/Motorcycles')]);
-        if (!isMounted) return;
-
-        setClients(extractApiData(clientsRes).map((item) => ({
-          id: item.clientId ?? item.id,
-          fullName: item.fullName ?? '',
-          cin: item.cin ?? '',
-          phone: item.phone ?? '',
-          email: item.email ?? '',
-          address: item.address ?? '',
-          city: item.city ?? '',
-          status: normalizeClientStatus(item.status)
-        })).filter((item) => item.status !== 'missing'));
-
-        setStockMotorcycles(extractApiData(stockRes).map((item) => ({
-          id: item.motorcycleId ?? item.id,
-          company: item.company ?? '',
-          brand: item.brand ?? '',
-          model: item.model ?? '',
-          qty: item.qty ?? 0,
-          purchasePrice: item.purchasePrice ?? 0,
-          salePrice: item.salePrice ?? 0
-        })));
-      } catch (error) {
-        toast.error(getApiErrorMessage(error, 'Impossible de charger les clients et le stock.'));
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    })();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const clientsQuery = useQuery(clientsQueryOptions());
+  const motorcyclesQuery = useQuery(motorcyclesQueryOptions());
+  const loading = clientsQuery.isLoading || motorcyclesQuery.isLoading;
+  const clients = useMemo(
+    () => (clientsQuery.data ?? [])
+      .map((item) => ({
+        id: item.clientId ?? item.id,
+        fullName: item.fullName ?? '',
+        cin: item.cin ?? '',
+        phone: item.phone ?? '',
+        email: item.email ?? '',
+        address: item.address ?? '',
+        city: item.city ?? '',
+        status: normalizeClientStatus(item.status)
+      }))
+      .filter((item) => item.status !== 'missing'),
+    [clientsQuery.data]
+  );
+  const stockMotorcycles = useMemo(
+    () => (motorcyclesQuery.data ?? []).map((item) => ({
+      id: item.motorcycleId ?? item.id,
+      company: item.company ?? '',
+      brand: item.brand ?? '',
+      model: item.model ?? '',
+      qty: item.qty ?? 0,
+      purchasePrice: item.purchasePrice ?? 0,
+      salePrice: item.salePrice ?? 0
+    })),
+    [motorcyclesQuery.data]
+  );
 
   const availableStock = useMemo(() => stockMotorcycles.filter((item) => Number(item.qty || 0) > 0), [stockMotorcycles]);
   const selectedClient = useMemo(() => clients.find((item) => String(item.id) === String(selectedClientId)) || null, [clients, selectedClientId]);
@@ -431,12 +424,15 @@ function InvoicesPage() {
       }
 
       if (selectedStock) {
-        setStockMotorcycles((previous) => previous.map((item) => (
+        queryClient.setQueryData(queryKeys.motorcycles.all, (previous = []) => previous.map((item) => (
           item.id === selectedStock.id ? { ...item, qty: Math.max(Number(item.qty || 0) - 1, 0) } : item
         )));
       }
 
       resetForm();
+      void queryClient.invalidateQueries({ queryKey: queryKeys.revendeur.invoices.all });
+      void queryClient.prefetchQuery(revendeurInvoicesQueryOptions());
+      void preloadRouteModule('/revendeur/carte-grise');
       window.dispatchEvent(new Event('notifications:refresh'));
       if (failedUploads.length > 0) {
         toast.warning(`Vente enregistree. Code portail: ${clientPortalAccessCode || 'genere'}. Documents a reprendre: ${failedUploads.join(', ')}.`);

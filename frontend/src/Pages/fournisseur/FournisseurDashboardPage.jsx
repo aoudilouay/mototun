@@ -1,10 +1,18 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import api from '../../api/axios';
 import LiveCalendarPanel from '../../components/LiveCalendarPanel';
 import { ChartPanelsSkeleton } from '../../components/loading/RouteSkeletons';
 import { useI18n } from '../../context/I18nContext';
+import {
+  fournisseurDashboardAnalyticsQueryOptions,
+  fournisseurDossiersQueryOptions,
+  fournisseurPartnershipsReceivedQueryOptions,
+  fournisseurPartnershipsSentQueryOptions,
+  notificationsQueryOptions,
+} from '../../lib/appQueries';
 
 const FournisseurDashboardCharts = lazy(() => import('../../components/fournisseur/FournisseurDashboardCharts'));
 
@@ -48,8 +56,6 @@ const num = (v) => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const extractArr = (res) => (Array.isArray(res?.data?.data) ? res.data.data : []);
-const extractObj = (res) => (res?.data?.data && typeof res.data.data === 'object' ? res.data.data : null);
 const parseDate = (v) => {
   if (!v) return null;
   const d = new Date(v);
@@ -107,52 +113,60 @@ function extractFileName(contentDisposition, fallback) {
 function FournisseurDashboardPage() {
   const { locale } = useI18n();
   const [timeRange, setTimeRange] = useState('month');
-  const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState('');
-  const [error, setError] = useState('');
-  const [lastSync, setLastSync] = useState(null);
-  const [analyticsRaw, setAnalyticsRaw] = useState(null);
-  const [invoicesRaw, setInvoicesRaw] = useState([]);
-  const [sentRaw, setSentRaw] = useState([]);
-  const [receivedRaw, setReceivedRaw] = useState([]);
-  const [notificationsRaw, setNotificationsRaw] = useState([]);
+  const analyticsQuery = useQuery(fournisseurDashboardAnalyticsQueryOptions(timeRange));
+  const dossiersQuery = useQuery(fournisseurDossiersQueryOptions());
+  const sentQuery = useQuery(fournisseurPartnershipsSentQueryOptions());
+  const receivedQuery = useQuery(fournisseurPartnershipsReceivedQueryOptions());
+  const notificationsQuery = useQuery({
+    ...notificationsQueryOptions('fournisseur'),
+    enabled: Boolean(
+      analyticsQuery.dataUpdatedAt
+      || dossiersQuery.dataUpdatedAt
+      || sentQuery.dataUpdatedAt
+      || receivedQuery.dataUpdatedAt
+    ),
+  });
+
+  const loading = analyticsQuery.isLoading && dossiersQuery.isLoading && sentQuery.isLoading && receivedQuery.isLoading;
+  const refreshing = analyticsQuery.isFetching || dossiersQuery.isFetching || sentQuery.isFetching || receivedQuery.isFetching || notificationsQuery.isFetching;
+  const error = [analyticsQuery.error, dossiersQuery.error, sentQuery.error, receivedQuery.error, notificationsQuery.error]
+    .find(Boolean)
+    ? 'Certaines informations n ont pas pu etre chargees.'
+    : '';
+  const lastSync = useMemo(() => {
+    const timestamps = [
+      analyticsQuery.dataUpdatedAt,
+      dossiersQuery.dataUpdatedAt,
+      sentQuery.dataUpdatedAt,
+      receivedQuery.dataUpdatedAt,
+      notificationsQuery.dataUpdatedAt,
+    ].filter(Boolean);
+
+    return timestamps.length > 0 ? new Date(Math.max(...timestamps)).toISOString() : null;
+  }, [
+    analyticsQuery.dataUpdatedAt,
+    dossiersQuery.dataUpdatedAt,
+    notificationsQuery.dataUpdatedAt,
+    receivedQuery.dataUpdatedAt,
+    sentQuery.dataUpdatedAt,
+  ]);
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    const req = await Promise.allSettled([
-      api.get(`/Invoices/fournisseur/dashboard?range=${timeRange}`),
-      api.get('/Invoices/fournisseur/carte-grise'),
-      api.get('/partnership-requests/sent'),
-      api.get('/partnership-requests/received')
+    await Promise.allSettled([
+      analyticsQuery.refetch(),
+      dossiersQuery.refetch(),
+      sentQuery.refetch(),
+      receivedQuery.refetch(),
+      notificationsQuery.refetch(),
     ]);
-    const [a, inv, sent, received] = req;
-    setAnalyticsRaw(a.status === 'fulfilled' ? extractObj(a.value) : null);
-    setInvoicesRaw(inv.status === 'fulfilled' ? extractArr(inv.value) : []);
-    setSentRaw(sent.status === 'fulfilled' ? extractArr(sent.value) : []);
-    setReceivedRaw(received.status === 'fulfilled' ? extractArr(received.value) : []);
-    const fail = req.find((x) => x.status === 'rejected');
-    if (fail) setError('Certaines informations n ont pas pu etre chargees.');
-    setLastSync(new Date().toISOString());
-    setLoading(false);
+  }, [analyticsQuery, dossiersQuery, notificationsQuery, receivedQuery, sentQuery]);
 
-    api
-      .get('/Notifications')
-      .then((response) => {
-        setNotificationsRaw(extractArr(response));
-      })
-      .catch(() => {
-        setNotificationsRaw([]);
-      });
-  }, [timeRange]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      load();
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [load]);
+  const analyticsRaw = analyticsQuery.data;
+  const invoicesRaw = useMemo(() => dossiersQuery.data ?? [], [dossiersQuery.data]);
+  const sentRaw = useMemo(() => sentQuery.data ?? [], [sentQuery.data]);
+  const receivedRaw = useMemo(() => receivedQuery.data ?? [], [receivedQuery.data]);
+  const notificationsRaw = useMemo(() => notificationsQuery.data ?? [], [notificationsQuery.data]);
 
   const analytics = useMemo(() => ({ ...EMPTY_ANALYTICS, ...(analyticsRaw || {}) }), [analyticsRaw]);
 
@@ -341,7 +355,7 @@ function FournisseurDashboardPage() {
               <option value="year">Cette annee</option>
             </select>
             <button onClick={load} className="w-full rounded-xl bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 sm:w-auto">
-              {loading ? 'Chargement...' : 'Actualiser'}
+              {refreshing ? 'Chargement...' : 'Actualiser'}
             </button>
             <button onClick={onExportKpi} disabled={loading || exporting === 'kpi'} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50 sm:w-auto">{exporting === 'kpi' ? 'Preparation...' : 'Telecharger resume'}</button>
             <button onClick={onExportDossiers} disabled={loading || dossiers.length === 0 || exporting === 'dossiers'} className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 disabled:opacity-50 sm:w-auto">{exporting === 'dossiers' ? 'Preparation...' : 'Telecharger dossiers'}</button>
@@ -400,7 +414,7 @@ function FournisseurDashboardPage() {
           title="Calendrier"
           subtitle="Vue des dossiers, partenaires et messages."
           events={calendarEvents}
-          loading={loading}
+          loading={loading || refreshing}
           primary={{ label: 'Dossiers aujourd hui', value: String(todayCalendarValue.count) }}
           secondary={{ label: 'Montant du jour', value: fmtMoney(todayCalendarValue.amount, locale) }}
           accent="emerald"

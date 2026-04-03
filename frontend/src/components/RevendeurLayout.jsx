@@ -1,8 +1,11 @@
-import { lazy, Suspense, useState } from 'react';
+import { lazy, Suspense, useCallback, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
 import { HeaderActionSkeleton, HeaderGreetingSkeleton } from './loading/RouteSkeletons';
+import { prefetchDataForPath } from '../lib/appQueries';
+import { preloadRouteModule } from '../lib/routePreloaders';
 import { resolveAvatarUrl } from '../utils/avatar';
 
 const NotificationsCenter = lazy(() => import('./NotificationsCenter'));
@@ -104,6 +107,7 @@ function RevendeurLayout() {
   const [failedAvatarUrl, setFailedAvatarUrl] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { logout, user } = useAuth();
   const { t, isArabic } = useI18n();
 
@@ -123,6 +127,11 @@ function RevendeurLayout() {
   ];
 
   const isActiveRoute = (path) => location.pathname === path;
+
+  const prefetchRouteIntent = useCallback((path) => {
+    void preloadRouteModule(path);
+    void prefetchDataForPath(queryClient, path);
+  }, [queryClient]);
 
   const handleLogout = () => {
     logout();
@@ -264,6 +273,8 @@ function RevendeurLayout() {
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsMobileSidebarOpen(false)}
+                    onMouseEnter={() => prefetchRouteIntent(item.path)}
+                    onFocus={() => prefetchRouteIntent(item.path)}
                     title={isSidebarCollapsed ? item.label : undefined}
                     className={`group flex items-center rounded-2xl transition-all ${
                       isSidebarCollapsed ? 'justify-center px-0 py-1.5' : 'gap-3 px-3 py-2.5'
@@ -317,6 +328,8 @@ function RevendeurLayout() {
                     key={item.path}
                     to={item.path}
                     onClick={() => setIsMobileSidebarOpen(false)}
+                    onMouseEnter={() => prefetchRouteIntent(item.path)}
+                    onFocus={() => prefetchRouteIntent(item.path)}
                     title={isSidebarCollapsed ? item.label : undefined}
                     className={`group flex items-center rounded-2xl transition-all ${
                       isSidebarCollapsed ? 'justify-center px-0 py-1.5' : 'gap-3 px-3 py-2.5'
