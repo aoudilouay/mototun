@@ -24,6 +24,7 @@ public static class PreferredEnvironmentVariableAliases
         // Storage
         ApplyAlias(configuration, "AZURE_BLOB__CONNECTION_STRING", "AzureBlob:ConnectionString");
         ApplyAlias(configuration, "AZURE_BLOB__DOCUMENTS_CONTAINER", "AzureBlob:DocumentsContainer");
+        ApplyAlias(configuration, "AZURE_BLOB__AVATARS_CONTAINER", "AzureBlob:AvatarsContainer");
         ApplyAlias(configuration, "AZURE_BLOB__INVOICE_SETTINGS_CONTAINER", "AzureBlob:InvoiceSettingsContainer");
 
         // Email

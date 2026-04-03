@@ -35,12 +35,12 @@ There are still practical go-live checks to complete:
 - create and verify the Cloudflare / Vercel / Render DNS records
 - run EF migrations against Azure SQL
 - set Azure Blob connection string and create containers
-- decide how to handle avatars on Render
+- set the avatars Blob container and decide whether you still need any local avatar fallback
 
 Important remaining caveats:
 
-- avatars are still stored locally and served from `/Storage/Avatars`
-- that means you should mount a Render persistent disk at `/app/Storage` for now
+- avatars can now use Azure Blob too
+- a Render persistent disk is only needed if you intentionally keep local avatar fallback or already have legacy local avatar files
 - Turnstile hostname validation is not implemented yet
 - this is acceptable for a first launch, but it is not the final hardening step
 
@@ -119,7 +119,7 @@ Storage:
 
 - private dossier documents can use Azure Blob
 - invoice PDF settings can use Azure Blob
-- avatars are still local
+- avatars can use Azure Blob while keeping the same `/Storage/Avatars/...` URL pattern
 
 ## 5. Required Production Environment Variables
 
@@ -155,6 +155,7 @@ CORS__ALLOWED_ORIGINS__1=https://tunimoto.tn
 
 AZURE_BLOB__CONNECTION_STRING=
 AZURE_BLOB__DOCUMENTS_CONTAINER=client-portal-docs
+AZURE_BLOB__AVATARS_CONTAINER=avatars
 AZURE_BLOB__INVOICE_SETTINGS_CONTAINER=invoice-pdf-settings
 
 RESEND__BASE_URL=https://api.resend.com
@@ -198,6 +199,7 @@ dotnet ef database update --project backend/src/mototun.Infrastructure --startup
 Create these containers:
 
 - `client-portal-docs`
+- `avatars`
 - `invoice-pdf-settings`
 
 Then put the Blob connection string in Render:
@@ -296,12 +298,8 @@ Add the custom domain:
 
 Important:
 
-- avatars still use local storage
-- for now, mount a persistent disk at `/app/Storage`
-
-Without that disk:
-
-- avatar uploads may disappear on redeploy or instance replacement
+- if `AZURE_BLOB__AVATARS_CONTAINER` is configured and Blob is active, new avatars are stored in Azure Blob
+- mount a persistent disk at `/app/Storage` only if you want local fallback or you still have legacy local avatar files to keep serving
 
 ## 7. DNS Plan
 
@@ -404,7 +402,7 @@ Storage:
 
 - new dossier documents land in Blob
 - invoice PDF settings persist correctly
-- avatar upload still works and still survives restart because of the Render disk
+- avatar upload still works and is served from the same `/Storage/Avatars/...` URL path
 
 Browser / domain:
 
@@ -417,8 +415,8 @@ Browser / domain:
 
 These are not blockers, but you should know them:
 
-1. Avatars are still local.
-   You need a Render persistent disk until you move avatars off local storage.
+1. If you still rely on local avatar files, you need a Render persistent disk.
+   New production avatars can now live in Azure Blob instead.
 
 2. Turnstile hostname validation is not yet implemented.
    You still have Turnstile verification, but not the stricter hostname check.
@@ -440,7 +438,7 @@ For a safe first production rollout, do this:
 - deploy frontend on Vercel
 - use Cloudflare for DNS and API proxying only
 - verify Resend before testing password reset
-- keep avatars on a Render persistent disk for this first version
+- use Azure Blob for avatars too, and keep a Render persistent disk only if you still need local fallback
 
 What I would not do yet:
 

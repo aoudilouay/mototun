@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using mototun.API.Services.Storage;
 using mototun.Core.DTOs;
 using mototun.Core.Entities;
 using mototun.Core.Enums;
@@ -29,12 +30,12 @@ public class ProfileController : ControllerBase
     };
 
     private readonly ApplicationDbContext _context;
-    private readonly IWebHostEnvironment _environment;
+    private readonly IAvatarStorage _avatarStorage;
 
-    public ProfileController(ApplicationDbContext context, IWebHostEnvironment environment)
+    public ProfileController(ApplicationDbContext context, IAvatarStorage avatarStorage)
     {
         _context = context;
-        _environment = environment;
+        _avatarStorage = avatarStorage;
     }
 
     [HttpGet("me")]
@@ -264,7 +265,7 @@ public class ProfileController : ControllerBase
 
     [HttpPost("me/avatar")]
     [RequestFormLimits(MultipartBodyLengthLimit = MaxAvatarUploadBytes)]
-    public async Task<ActionResult<ApiResponse<MyProfileDto>>> UploadMyAvatar([FromForm] IFormFile? file)
+    public async Task<ActionResult<ApiResponse<MyProfileDto>>> UploadMyAvatar([FromForm] IFormFile? file, CancellationToken cancellationToken)
     {
         if (!TryGetCurrentUser(out var currentUserId, out var role))
         {
@@ -313,12 +314,12 @@ public class ProfileController : ControllerBase
             }
 
             var oldAvatar = revendeur.User.Avatar;
-            var relativePath = await SaveAvatarFileAsync(currentUserId, file, extension);
+            var relativePath = await SaveAvatarFileAsync(currentUserId, file, extension, cancellationToken);
             revendeur.User.Avatar = relativePath;
             revendeur.User.UpdatedAt = now;
 
             await _context.SaveChangesAsync();
-            TryDeleteAvatarIfLocal(oldAvatar, relativePath);
+            await DeletePreviousAvatarIfChangedAsync(oldAvatar, relativePath, cancellationToken);
 
             return Ok(new ApiResponse<MyProfileDto>
             {
@@ -340,12 +341,12 @@ public class ProfileController : ControllerBase
             }
 
             var oldAvatar = fournisseur.User.Avatar;
-            var relativePath = await SaveAvatarFileAsync(currentUserId, file, extension);
+            var relativePath = await SaveAvatarFileAsync(currentUserId, file, extension, cancellationToken);
             fournisseur.User.Avatar = relativePath;
             fournisseur.User.UpdatedAt = now;
 
             await _context.SaveChangesAsync();
-            TryDeleteAvatarIfLocal(oldAvatar, relativePath);
+            await DeletePreviousAvatarIfChangedAsync(oldAvatar, relativePath, cancellationToken);
 
             return Ok(new ApiResponse<MyProfileDto>
             {
@@ -356,6 +357,31 @@ public class ProfileController : ControllerBase
         }
 
         return Forbid();
+    }
+
+    [AllowAnonymous]
+    [HttpGet("/Storage/Avatars/{**avatarPath}")]
+    public async Task<IActionResult> GetAvatar(string avatarPath, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(avatarPath))
+        {
+            return NotFound();
+        }
+
+        var normalizedPath = avatarPath
+            .Replace('\\', '/')
+            .Trim()
+            .TrimStart('/');
+        var storageKey = $"Storage/Avatars/{normalizedPath}";
+
+        var stream = await _avatarStorage.OpenReadAsync(storageKey, cancellationToken);
+        if (stream is null)
+        {
+            return NotFound();
+        }
+
+        Response.Headers.CacheControl = "public, max-age=86400";
+        return File(stream, ResolveAvatarContentType(storageKey));
     }
 
     private async Task<MyProfileDto?> GetProfileAsync(UserRole role, int currentUserId)
@@ -411,24 +437,18 @@ public class ProfileController : ControllerBase
         return null;
     }
 
-    private async Task<string> SaveAvatarFileAsync(int userId, IFormFile file, string extension)
+    private async Task<string> SaveAvatarFileAsync(int userId, IFormFile file, string extension, CancellationToken cancellationToken)
     {
-        var rootPath = Path.Combine(GetStableContentRoot(), "Storage", "Avatars", userId.ToString());
-        Directory.CreateDirectory(rootPath);
-
         var storedFileName = $"{DateTime.UtcNow:yyyyMMddHHmmssfff}_{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
-        var absolutePath = Path.Combine(rootPath, storedFileName);
-
-        await using (var stream = new FileStream(absolutePath, FileMode.CreateNew))
-        {
-            await file.CopyToAsync(stream);
-        }
-
-        return Path.Combine("Storage", "Avatars", userId.ToString(), storedFileName)
+        var storageKey = Path.Combine("Storage", "Avatars", userId.ToString(), storedFileName)
             .Replace('\\', '/');
+
+        await using var stream = file.OpenReadStream();
+        await _avatarStorage.SaveAsync(storageKey, stream, file.ContentType, cancellationToken);
+        return storageKey;
     }
 
-    private void TryDeleteAvatarIfLocal(string? previousAvatarPath, string? currentAvatarPath)
+    private async Task DeletePreviousAvatarIfChangedAsync(string? previousAvatarPath, string? currentAvatarPath, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(previousAvatarPath))
         {
@@ -452,68 +472,7 @@ public class ProfileController : ControllerBase
             return;
         }
 
-        var absolutePath = ResolveAbsolutePath(previousNormalized);
-        if (!System.IO.File.Exists(absolutePath))
-        {
-            return;
-        }
-
-        try
-        {
-            System.IO.File.Delete(absolutePath);
-        }
-        catch
-        {
-        }
-    }
-
-    private string ResolveAbsolutePath(string relativePath)
-    {
-        var normalizedRelative = NormalizeStoragePath(relativePath)
-            .Replace('/', Path.DirectorySeparatorChar);
-
-        var primaryRoot = Path.GetFullPath(_environment.ContentRootPath);
-        var primaryPath = Path.GetFullPath(Path.Combine(primaryRoot, normalizedRelative));
-        if (!primaryPath.StartsWith(primaryRoot, StringComparison.OrdinalIgnoreCase))
-        {
-            return Path.Combine(primaryRoot, "Storage", "__invalid__");
-        }
-
-        if (System.IO.File.Exists(primaryPath))
-        {
-            return primaryPath;
-        }
-
-        var stableRoot = GetStableContentRoot();
-        if (!string.Equals(stableRoot, _environment.ContentRootPath, StringComparison.OrdinalIgnoreCase))
-        {
-            var stableRootFull = Path.GetFullPath(stableRoot);
-            var fallbackPath = Path.GetFullPath(Path.Combine(stableRootFull, normalizedRelative));
-            if (fallbackPath.StartsWith(stableRootFull, StringComparison.OrdinalIgnoreCase)
-                && System.IO.File.Exists(fallbackPath))
-            {
-                return fallbackPath;
-            }
-        }
-
-        return primaryPath;
-    }
-
-    private string GetStableContentRoot()
-    {
-        var contentRoot = _environment.ContentRootPath;
-        var marker = $"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}";
-        var markerIndex = contentRoot.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
-        if (markerIndex > 0)
-        {
-            var projectRoot = contentRoot[..markerIndex];
-            if (Directory.Exists(projectRoot))
-            {
-                return projectRoot;
-            }
-        }
-
-        return contentRoot;
+        await _avatarStorage.DeleteIfExistsAsync(previousNormalized, cancellationToken);
     }
 
     private static string NormalizeStoragePath(string? value)
@@ -625,6 +584,24 @@ public class ProfileController : ControllerBase
         }
 
         return string.Empty;
+    }
+
+    private static string ResolveAvatarContentType(string storageKey)
+    {
+        var extension = Path.GetExtension(storageKey).ToLowerInvariant();
+        return extension switch
+        {
+            ".png" => "image/png",
+            ".jpg" => "image/jpeg",
+            ".jpeg" => "image/jpeg",
+            ".webp" => "image/webp",
+            ".bmp" => "image/bmp",
+            ".jfif" => "image/jpeg",
+            ".heic" => "image/heic",
+            ".heif" => "image/heif",
+            ".avif" => "image/avif",
+            _ => "application/octet-stream"
+        };
     }
 
     private static MyProfileDto MapProfile(Revendeur revendeur)

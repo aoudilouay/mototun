@@ -13,7 +13,8 @@ This file is the launch handoff for the current repository state after the produ
 - Azure Blob-backed storage is wired for:
   - private dossier documents
   - invoice PDF settings
-- Avatar uploads still remain on local storage and should use a Render persistent disk for now
+  - avatars
+- Avatar delivery keeps the same `/Storage/Avatars/...` public path, but files can now come from Azure Blob through the backend
 - Password reset no longer depends on a production localhost fallback.
 - Production startup validation now enforces:
   - database connection string
@@ -43,7 +44,7 @@ This file is the launch handoff for the current repository state after the produ
    - backend CORS allowed origins
    - backend password reset URL
    - frontend `VITE_API_BASE_URL`
-7. Mount a Render persistent disk at `/app/Storage` until avatars are moved off local storage.
+7. Mount a Render persistent disk at `/app/Storage` only if you plan to keep local avatar fallback or you still have legacy local avatar files.
 8. Apply EF Core migrations against the production database.
 9. Deploy backend first, confirm `/health` is green, then deploy the frontend.
 10. Run the manual QA checklist at the end of this file before launch.
@@ -81,6 +82,7 @@ ADMIN_BOOTSTRAP__ENABLED=false
 
 AZURE_BLOB__CONNECTION_STRING=<azure blob connection string>
 AZURE_BLOB__DOCUMENTS_CONTAINER=client-portal-docs
+AZURE_BLOB__AVATARS_CONTAINER=avatars
 AZURE_BLOB__INVOICE_SETTINGS_CONTAINER=invoice-pdf-settings
 ```
 

@@ -9,8 +9,7 @@ Mototun is a production-oriented motorcycle sales and operations platform with a
 - Auth: JWT-based session/auth flow with protected API endpoints
 - Email: Resend API
 - Deployment: Render for backend, Vercel for frontend
-- Storage: current runtime storage is local filesystem-backed for avatars, portal documents, and invoice branding assets
-- Planned production private storage: Azure Blob Storage for sensitive documents
+- Storage: Azure Blob Storage is supported for dossier documents, invoice branding assets, and avatars, with local fallback when Blob is not configured
 
 ## Architecture Summary
 
@@ -172,6 +171,7 @@ Azure Blob storage:
 ```env
 AZURE_BLOB__CONNECTION_STRING=
 AZURE_BLOB__DOCUMENTS_CONTAINER=client-portal-docs
+AZURE_BLOB__AVATARS_CONTAINER=avatars
 AZURE_BLOB__INVOICE_SETTINGS_CONTAINER=invoice-pdf-settings
 ```
 
@@ -213,7 +213,7 @@ For GitHub push preparation and `.gitignore` verification, use `docs/GIT_PUSH_GU
 - Root directory: `backend`
 - Dockerfile path: `Dockerfile`
 - Health check path: `/health`
-- Add a persistent disk mounted at `/app/Storage` only as a temporary bridge until Blob storage is wired for private documents
+- Add a persistent disk mounted at `/app/Storage` only if you intentionally keep local avatar fallback or legacy local files
 - Set environment variables in Render, not in source files
 
 ## Vercel Deployment Notes
@@ -267,7 +267,7 @@ The password reset flow depends on a valid `AUTH_SETTINGS__PASSWORD_RESET_URL` a
 
 ### Uploads disappear after backend restart
 
-- Confirm Render has a persistent disk mounted at `/app/Storage`
+- If Blob is not used for avatars, confirm Render has a persistent disk mounted at `/app/Storage`
 
 ### Health check returns degraded
 

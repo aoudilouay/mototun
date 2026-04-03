@@ -327,6 +327,16 @@ builder.Services.AddSingleton<IFileStorage>(serviceProvider =>
         ? serviceProvider.GetRequiredService<LocalFileStorage>()
         : serviceProvider.GetRequiredService<AzureBlobFileStorage>();
 });
+builder.Services.AddSingleton<LocalAvatarStorage>();
+builder.Services.AddSingleton<AzureBlobAvatarStorage>();
+builder.Services.AddSingleton<BlobPreferredAvatarStorage>();
+builder.Services.AddSingleton<IAvatarStorage>(serviceProvider =>
+{
+    var options = serviceProvider.GetRequiredService<IOptions<AzureBlobOptions>>().Value;
+    return string.IsNullOrWhiteSpace(options.ConnectionString)
+        ? serviceProvider.GetRequiredService<LocalAvatarStorage>()
+        : serviceProvider.GetRequiredService<BlobPreferredAvatarStorage>();
+});
 builder.Services.AddSingleton<FileInvoicePdfSettingsStore>();
 builder.Services.AddSingleton<BlobInvoicePdfSettingsStore>();
 builder.Services.AddSingleton<IInvoicePdfSettingsStore>(serviceProvider =>
