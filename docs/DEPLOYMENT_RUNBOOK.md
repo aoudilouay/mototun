@@ -21,7 +21,8 @@ Current status:
 - backend production build passes
 - production env templates exist
 - backend has production startup validation
-- health endpoint exists at `/health`
+- liveness endpoint exists at `/health`
+- readiness endpoint exists at `/health/ready`
 - private dossier documents are Blob-ready
 - invoice PDF settings are Blob-ready
 - secure client portal token is implemented
@@ -107,7 +108,8 @@ Frontend:
 Backend:
 
 - production validation rejects missing critical config outside development
-- health endpoint exists at `/health`
+- Render liveness endpoint exists at `/health`
+- database readiness endpoint exists at `/health/ready`
 - JWT auth cookie is `HttpOnly`
 - secure cookie is enabled outside development
 - `SameSite=Strict`
@@ -289,6 +291,7 @@ Service settings:
 - root directory: `backend`
 - Dockerfile path: `Dockerfile`
 - health check path: `/health`
+- optional readiness check: `/health/ready`
 
 Do not override the Docker start command unless necessary.
 
@@ -345,11 +348,13 @@ This is the safest order with minimum surprises:
 10. Run EF migrations against Azure SQL.
 11. Deploy backend first.
 12. Open `https://api.tunimoto.tn/health`.
-13. Confirm health returns success.
-14. Deploy frontend.
-15. Open `https://www.tunimoto.tn`.
-16. Test login, password reset, portal access, uploads, and dossier flows.
-17. Only after that, announce go-live.
+13. Confirm liveness returns success.
+14. Open `https://api.tunimoto.tn/health/ready`.
+15. Confirm readiness returns success and database status `ok`.
+16. Deploy frontend.
+17. Open `https://www.tunimoto.tn`.
+18. Test login, password reset, portal access, uploads, and dossier flows.
+19. Only after that, announce go-live.
 
 ## 9. Exact Commands You Will Use
 
@@ -381,6 +386,8 @@ Backend:
 
 - `GET /health` returns `200`
 - payload shows `status: ok`
+- payload shows `database: unchecked`
+- `GET /health/ready` returns `200`
 - payload shows `database: ok`
 
 Auth:

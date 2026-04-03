@@ -23,7 +23,8 @@ This file is the launch handoff for the current repository state after the produ
   - HTTPS reset-password URL
   - Resend API key and sender email
   - OCR base URL if OCR is enabled
-- Added `/health` endpoint for deployment and uptime checks.
+- Added `/health` liveness endpoint for deployment and uptime checks.
+- Added `/health/ready` readiness endpoint for database-aware diagnostics.
 - Added proxy-aware startup with forwarded headers for Render-style reverse proxy deployments.
 - Added centralized exception handling for unhandled API errors.
 - Tightened invoice settings uploads so logo/signature files must be valid supported image types, not just under the size limit.
@@ -46,7 +47,7 @@ This file is the launch handoff for the current repository state after the produ
    - frontend `VITE_API_BASE_URL`
 7. Mount a Render persistent disk at `/app/Storage` only if you plan to keep local avatar fallback or you still have legacy local avatar files.
 8. Apply EF Core migrations against the production database.
-9. Deploy backend first, confirm `/health` is green, then deploy the frontend.
+9. Deploy backend first, confirm `/health` is green, then verify `/health/ready`, then deploy the frontend.
 10. Run the manual QA checklist at the end of this file before launch.
 
 ## C. Exact Environment Variables For Render
@@ -172,15 +173,16 @@ These files must not be treated as the production source of truth.
 4. Run EF Core migrations:
    - `dotnet ef database update --project backend/src/mototun.Infrastructure --startup-project backend/src/mototun.API`
 5. Deploy backend to Render as a Docker web service using `backend/Dockerfile`.
-6. Verify `GET /health` returns `200` and database status `ok`.
-7. Set Vercel frontend env vars.
-8. Deploy frontend to Vercel from the `frontend` directory.
-9. Verify SPA deep links work directly on Vercel:
+6. Verify `GET /health` returns `200`.
+7. Verify `GET /health/ready` returns `200` and database status `ok`.
+8. Set Vercel frontend env vars.
+9. Deploy frontend to Vercel from the `frontend` directory.
+10. Verify SPA deep links work directly on Vercel:
    - `/login`
    - `/forgot-password`
    - `/reset-password`
    - `/client-portal` flows if applicable
-10. Run the manual QA checklist below.
+11. Run the manual QA checklist below.
 
 ## Build / Start Commands
 
@@ -219,6 +221,7 @@ Vercel output directory: `dist`
 - Create invoice, generate/download PDF, and verify content.
 - Verify CORS works only from the production frontend origin.
 - Confirm `/health` is healthy after deployment.
+- Confirm `/health/ready` reports database status `ok`.
 - Review backend logs for startup validation warnings or Resend/Turnstile failures.
 
 ## I. Remaining Technical Debt / Risky Areas

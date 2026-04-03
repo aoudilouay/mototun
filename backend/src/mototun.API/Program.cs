@@ -426,7 +426,17 @@ app.UseCors("AllowFrontend");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
-app.MapGet("/health", async (ApplicationDbContext dbContext, IWebHostEnvironment environment, CancellationToken cancellationToken) =>
+app.MapGet("/health", (IWebHostEnvironment environment) =>
+{
+    return Results.Ok(new
+    {
+        status = "ok",
+        environment = environment.EnvironmentName,
+        database = "unchecked",
+        utcTime = DateTime.UtcNow
+    });
+}).AllowAnonymous();
+app.MapGet("/health/ready", async (ApplicationDbContext dbContext, IWebHostEnvironment environment, CancellationToken cancellationToken) =>
 {
     var databaseStatus = "ok";
     var isHealthy = true;
@@ -435,9 +445,17 @@ app.MapGet("/health", async (ApplicationDbContext dbContext, IWebHostEnvironment
     {
         if (dbContext.Database.IsRelational())
         {
-            isHealthy = await dbContext.Database.CanConnectAsync(cancellationToken);
+            using var readinessTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            readinessTimeout.CancelAfter(TimeSpan.FromSeconds(5));
+
+            isHealthy = await dbContext.Database.CanConnectAsync(readinessTimeout.Token);
             databaseStatus = isHealthy ? "ok" : "unavailable";
         }
+    }
+    catch (OperationCanceledException)
+    {
+        isHealthy = false;
+        databaseStatus = "timeout";
     }
     catch
     {

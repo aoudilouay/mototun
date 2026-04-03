@@ -200,7 +200,8 @@ VITE_CLOUDFLARE_TURNSTILE_SITE_KEY=
 - Database: Azure SQL / SQL Server
 - Email: Resend API
 - DNS / proxy: Cloudflare in front of the API only (`api.tunimoto.tn`)
-- Health endpoint: `/health`
+- Render liveness endpoint: `/health`
+- Database readiness endpoint: `/health/ready`
 
 Full deployment values and launch sequence are documented in `PRODUCTION_HANDOFF.md`.
 For the full step-by-step runbook, use `docs/DEPLOYMENT_RUNBOOK.md`.
@@ -213,6 +214,7 @@ For GitHub push preparation and `.gitignore` verification, use `docs/GIT_PUSH_GU
 - Root directory: `backend`
 - Dockerfile path: `Dockerfile`
 - Health check path: `/health`
+- Optional readiness probe: `/health/ready`
 - Add a persistent disk mounted at `/app/Storage` only if you intentionally keep local avatar fallback or legacy local files
 - Set environment variables in Render, not in source files
 
@@ -271,6 +273,8 @@ The password reset flow depends on a valid `AUTH_SETTINGS__PASSWORD_RESET_URL` a
 
 ### Health check returns degraded
 
+- `GET /health` should stay fast and return `200` when the API process is alive
+- `GET /health/ready` verifies database readiness
 - Inspect backend logs
 - Confirm SQL connectivity
 - Confirm required production variables are set
