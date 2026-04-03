@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useI18n } from '../context/I18nContext';
-import NotificationsCenter from './NotificationsCenter';
-import HeaderGreetingWeatherCard from './HeaderGreetingWeatherCard';
+import { HeaderActionSkeleton, HeaderGreetingSkeleton } from './loading/RouteSkeletons';
 import { resolveAvatarUrl } from '../utils/avatar';
+
+const NotificationsCenter = lazy(() => import('./NotificationsCenter'));
+const HeaderGreetingWeatherCard = lazy(() => import('./HeaderGreetingWeatherCard'));
 
 function renderNavIcon(icon) {
   const common = 'h-4 w-4';
@@ -398,12 +400,14 @@ function RevendeurLayout() {
               </button>
 
               <div className="w-full min-w-0 flex-1 sm:max-w-[470px]">
-                <HeaderGreetingWeatherCard
-                  displayName={displayName}
-                  city={userCity}
-                  isArabic={isArabic}
-                  accent="cyan"
-                />
+                <Suspense fallback={<HeaderGreetingSkeleton />}>
+                  <HeaderGreetingWeatherCard
+                    displayName={displayName}
+                    city={userCity}
+                    isArabic={isArabic}
+                    accent="cyan"
+                  />
+                </Suspense>
               </div>
             </div>
 
@@ -422,7 +426,9 @@ function RevendeurLayout() {
                 </svg>
               </Link>
 
-              <NotificationsCenter userType="revendeur" />
+              <Suspense fallback={<HeaderActionSkeleton />}>
+                <NotificationsCenter userType="revendeur" />
+              </Suspense>
 
               <div className="relative">
                 <button

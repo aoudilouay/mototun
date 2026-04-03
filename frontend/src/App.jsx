@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import ProtectedRoute from './components/ProtectedRoute';
+import { AppPageSkeleton, AppShellSkeleton, PublicRouteSkeleton } from './components/loading/RouteSkeletons';
 import { AuthProvider } from './context/AuthContext';
 import { I18nProvider, useI18n } from './context/I18nContext';
 
@@ -38,88 +39,94 @@ const AdminLayout = lazy(() => import('./components/AdminLayout'));
 const AdminUsersPage = lazy(() => import('./Pages/admin/AdminUsersPage'));
 const AdminAuditPage = lazy(() => import('./Pages/admin/AdminAuditPage'));
 
-function RouteLoadingFallback() {
-  return (
-    <div className="flex min-h-[40vh] items-center justify-center p-8 text-sm text-slate-500">
-      Loading page...
-    </div>
-  );
+function withSuspense(element, fallback) {
+  return <Suspense fallback={fallback}>{element}</Suspense>;
+}
+
+function renderPublicRoute(element) {
+  return withSuspense(element, <PublicRouteSkeleton />);
+}
+
+function renderAppShell(element, accent) {
+  return withSuspense(element, <AppShellSkeleton accent={accent} />);
+}
+
+function renderAppPage(element, accent) {
+  return withSuspense(element, <AppPageSkeleton accent={accent} />);
 }
 
 function AppRoutes() {
   const { t, language } = useI18n();
 
   return (
-    <Suspense fallback={<RouteLoadingFallback />}>
-      <Routes key={language}>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/client-portal" element={<ClientPortalPage />} />
-        <Route path="/legal" element={<LegalPage />} />
-        <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+    <Routes key={language}>
+      <Route path="/" element={renderPublicRoute(<LandingPage />)} />
+      <Route path="/login" element={renderPublicRoute(<LoginPage />)} />
+      <Route path="/register" element={renderPublicRoute(<RegisterPage />)} />
+      <Route path="/forgot-password" element={renderPublicRoute(<ForgotPasswordPage />)} />
+      <Route path="/reset-password" element={renderPublicRoute(<ResetPasswordPage />)} />
+      <Route path="/client-portal" element={renderPublicRoute(<ClientPortalPage />)} />
+      <Route path="/legal" element={renderPublicRoute(<LegalPage />)} />
+      <Route path="/privacy-policy" element={renderPublicRoute(<PrivacyPolicyPage />)} />
 
-        <Route
-          path="/revendeur"
-          element={
-            <ProtectedRoute allowedRoles={['Revendeur']}>
-              <RevendeurLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<Navigate to="/revendeur/dashboard" replace />} />
-          <Route path="dashboard" element={<DashboardPage />} />
-          <Route path="messages" element={<MessagingPage />} />
-          <Route path="profile" element={<RevendeurProfilePage />} />
-          <Route path="clients" element={<ClientsPage />} />
-          <Route path="fournisseurs" element={<FournisseursPage />} />
-          <Route path="motorcycles" element={<MotorcyclesPage />} />
-          <Route path="carte-grise" element={<CarteGrisePage />} />
-          <Route path="invoices" element={<InvoicesPage />} />
-          <Route path="archive" element={<CarteGrisePage initialViewMode="archive" />} />
-          <Route path="stats" element={<RevendeurStatsPage />} />
-          <Route path="settings" element={<Navigate to="/revendeur/dashboard" replace />} />
-          <Route path="support" element={<SupportCenterPage mode="revendeur" />} />
-        </Route>
+      <Route
+        path="/revendeur"
+        element={
+          <ProtectedRoute allowedRoles={['Revendeur']}>
+            {renderAppShell(<RevendeurLayout />, 'cyan')}
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="/revendeur/dashboard" replace />} />
+        <Route path="dashboard" element={renderAppPage(<DashboardPage />, 'cyan')} />
+        <Route path="messages" element={renderAppPage(<MessagingPage />, 'cyan')} />
+        <Route path="profile" element={renderAppPage(<RevendeurProfilePage />, 'cyan')} />
+        <Route path="clients" element={renderAppPage(<ClientsPage />, 'cyan')} />
+        <Route path="fournisseurs" element={renderAppPage(<FournisseursPage />, 'cyan')} />
+        <Route path="motorcycles" element={renderAppPage(<MotorcyclesPage />, 'cyan')} />
+        <Route path="carte-grise" element={renderAppPage(<CarteGrisePage />, 'cyan')} />
+        <Route path="invoices" element={renderAppPage(<InvoicesPage />, 'cyan')} />
+        <Route path="archive" element={renderAppPage(<CarteGrisePage initialViewMode="archive" />, 'cyan')} />
+        <Route path="stats" element={renderAppPage(<RevendeurStatsPage />, 'cyan')} />
+        <Route path="settings" element={<Navigate to="/revendeur/dashboard" replace />} />
+        <Route path="support" element={renderAppPage(<SupportCenterPage mode="revendeur" />, 'cyan')} />
+      </Route>
 
-        <Route
-          path="/fournisseur"
-          element={
-            <ProtectedRoute allowedRoles={['Fournisseur']}>
-              <FournisseurLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<Navigate to="/fournisseur/dashboard" replace />} />
-          <Route path="dashboard" element={<FournisseurDashboardPage />} />
-          <Route path="revendeurs" element={<RevendeursPage />} />
-          <Route path="carte-grise" element={<FournisseurCarteGrisePage />} />
-          <Route path="messages" element={<FournisseurMessagingPage />} />
-          <Route path="profile" element={<FournisseurProfilePage />} />
-          <Route path="stats" element={<FournisseurStatsPage />} />
-          <Route path="settings" element={<ComingSoonPage label={t('common.comingSoonSettings')} />} />
-          <Route path="support" element={<SupportCenterPage mode="fournisseur" />} />
-        </Route>
+      <Route
+        path="/fournisseur"
+        element={
+          <ProtectedRoute allowedRoles={['Fournisseur']}>
+            {renderAppShell(<FournisseurLayout />, 'emerald')}
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<Navigate to="/fournisseur/dashboard" replace />} />
+        <Route path="dashboard" element={renderAppPage(<FournisseurDashboardPage />, 'emerald')} />
+        <Route path="revendeurs" element={renderAppPage(<RevendeursPage />, 'emerald')} />
+        <Route path="carte-grise" element={renderAppPage(<FournisseurCarteGrisePage />, 'emerald')} />
+        <Route path="messages" element={renderAppPage(<FournisseurMessagingPage />, 'emerald')} />
+        <Route path="profile" element={renderAppPage(<FournisseurProfilePage />, 'emerald')} />
+        <Route path="stats" element={renderAppPage(<FournisseurStatsPage />, 'emerald')} />
+        <Route path="settings" element={<ComingSoonPage label={t('common.comingSoonSettings')} />} />
+        <Route path="support" element={renderAppPage(<SupportCenterPage mode="fournisseur" />, 'emerald')} />
+      </Route>
 
-        <Route
-          path="/admin"
-          element={(
-            <ProtectedRoute allowedRoles={['Admin']}>
-              <AdminLayout />
-            </ProtectedRoute>
-          )}
-        >
-          <Route index element={<Navigate to="/admin/users" replace />} />
-          <Route path="users" element={<AdminUsersPage />} />
-          <Route path="audit" element={<AdminAuditPage />} />
-          <Route path="support" element={<SupportCenterPage mode="admin" />} />
-        </Route>
+      <Route
+        path="/admin"
+        element={(
+          <ProtectedRoute allowedRoles={['Admin']}>
+            {renderAppShell(<AdminLayout />, 'slate')}
+          </ProtectedRoute>
+        )}
+      >
+        <Route index element={<Navigate to="/admin/users" replace />} />
+        <Route path="users" element={renderAppPage(<AdminUsersPage />, 'slate')} />
+        <Route path="audit" element={renderAppPage(<AdminAuditPage />, 'slate')} />
+        <Route path="support" element={renderAppPage(<SupportCenterPage mode="admin" />, 'slate')} />
+      </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 }
 

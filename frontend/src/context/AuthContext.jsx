@@ -6,7 +6,7 @@ const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => authService.getCurrentUser());
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !authService.hasStoredSession());
 
   useEffect(() => {
     let isMounted = true;

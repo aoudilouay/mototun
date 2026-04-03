@@ -1,31 +1,25 @@
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { useI18n } from '../context/I18nContext';
+import { AppShellSkeleton } from './loading/RouteSkeletons';
 
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { isAuthenticated, loading, user } = useAuth();
-  const { t } = useI18n();
+  const location = useLocation();
+  const loadingAccent = location.pathname.startsWith('/fournisseur')
+    ? 'emerald'
+    : location.pathname.startsWith('/admin')
+      ? 'slate'
+      : 'cyan';
 
-  // Show loading spinner while checking auth
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-slate-600">{t('common.loading')}</p>
-        </div>
-      </div>
-    );
+    return <AppShellSkeleton accent={loadingAccent} />;
   }
 
-  // If not authenticated, redirect to login
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
-  // If allowedRoles is specified, check user role
   if (allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
-    // Redirect to appropriate dashboard based on user role
     if (user?.role === 'Revendeur') {
       return <Navigate to="/revendeur/dashboard" replace />;
     } else if (user?.role === 'Fournisseur') {

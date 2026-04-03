@@ -105,8 +105,32 @@ function NotificationsCenter({ userType }) {
   }, [t, userType]);
 
   useEffect(() => {
-    loadNotifications();
+    let timeoutId = null;
+    let idleId = null;
+
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(loadNotifications, { timeout: 1800 });
+    } else {
+      timeoutId = window.setTimeout(loadNotifications, 350);
+    }
+
+    return () => {
+      if (idleId !== null && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
   }, [loadNotifications]);
+
+  useEffect(() => {
+    if (!isOpen || loading || notifications.length > 0) {
+      return;
+    }
+
+    loadNotifications();
+  }, [isOpen, loading, loadNotifications, notifications.length]);
 
   useEffect(() => {
     const interval = window.setInterval(() => {

@@ -180,6 +180,8 @@ function HeaderGreetingWeatherCard({ displayName, city, isArabic = false, accent
   useEffect(() => {
     let cancelled = false;
     const controller = new AbortController();
+    let timeoutId = null;
+    let idleId = null;
 
     const loadWeather = async () => {
       setWeather((prev) => ({
@@ -231,11 +233,21 @@ function HeaderGreetingWeatherCard({ displayName, city, isArabic = false, accent
       }
     };
 
-    loadWeather();
+    if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+      idleId = window.requestIdleCallback(loadWeather, { timeout: 1500 });
+    } else {
+      timeoutId = window.setTimeout(loadWeather, 250);
+    }
 
     return () => {
       cancelled = true;
       controller.abort();
+      if (idleId !== null && typeof window !== 'undefined' && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
     };
   }, [city, isArabic]);
 

@@ -255,6 +255,10 @@ const authService = {
     return !!authService.getCurrentUser();
   },
 
+  hasStoredSession: () => {
+    return Boolean(readStoredUser());
+  },
+
   // Get user role
   getUserRole: () => {
     const user = authService.getCurrentUser();
