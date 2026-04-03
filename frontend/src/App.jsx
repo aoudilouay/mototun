@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
 import { I18nProvider, useI18n } from './context/I18nContext';
@@ -134,6 +135,7 @@ function App() {
         <Router>
           <AppRoutes />
           <Toaster richColors position="bottom-right" />
+          <SpeedInsights />
         </Router>
       </I18nProvider>
     </AuthProvider>
