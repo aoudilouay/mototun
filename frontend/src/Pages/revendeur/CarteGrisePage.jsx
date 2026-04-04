@@ -575,9 +575,11 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
   };
 
   const fetchDocumentBlob = async (invoiceId, doc) => {
+    // For large files (>1MB), use longer timeout
+    const timeout = doc.sizeBytes > 1_000_000 ? 600000 : 120000; // 10 min for large, 2 min for small
     const response = await api.get(`/Invoices/${invoiceId}/documents/${doc.documentId}/download`, {
       responseType: 'blob',
-      timeout: 120000 // 2 minute timeout instead of default
+      timeout: timeout
     });
     return new Blob([response.data], { type: response.data?.type || doc.contentType || 'application/octet-stream' });
   };
@@ -586,7 +588,8 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     const key = `download-${dossier.invoiceId}-${doc.documentId}`;
     try {
       setActiveAction(key);
-      const toastId = toast.loading(tr('Téléchargement du document...', 'جار تنزيل الوثيقة...'));
+      const fileSizeMB = (doc.sizeBytes / (1024 * 1024)).toFixed(1);
+      const toastId = toast.loading(tr(`Téléchargement du document (${fileSizeMB} MB)...`, `جار تنزيل الوثيقة (${fileSizeMB} MB)...`));
       const blob = await fetchDocumentBlob(dossier.invoiceId, doc);
       toast.dismiss(toastId);
       const url = URL.createObjectURL(blob);
@@ -609,7 +612,8 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     const key = `preview-${dossier.invoiceId}-${doc.documentId}`;
     try {
       setActiveAction(key);
-      const toastId = toast.loading(tr('Chargement du document...', 'جار تحميل الوثيقة...'));
+      const fileSizeMB = (doc.sizeBytes / (1024 * 1024)).toFixed(1);
+      const toastId = toast.loading(tr(`Chargement du document (${fileSizeMB} MB)...`, `جار تحميل الوثيقة (${fileSizeMB} MB)...`));
       const blob = await fetchDocumentBlob(dossier.invoiceId, doc);
       toast.dismiss(toastId);
       const url = URL.createObjectURL(blob);

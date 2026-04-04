@@ -2165,7 +2165,11 @@ public class InvoicesController : ControllerBase
             });
         }
 
-        return File(stream, document.ContentType, document.OriginalFileName);
+        // Add caching headers for browser cache (1 week)
+        Response.Headers.CacheControl = "public, max-age=604800, must-revalidate";
+        Response.Headers.ETag = $"\"{document.Id}-{document.UpdatedAt:O}\"";
+
+        return File(stream, document.ContentType, document.OriginalFileName, enableRangeProcessing: true);
     }
 
     [HttpPost("fournisseur/carte-grise/{id:int}/documents")]
