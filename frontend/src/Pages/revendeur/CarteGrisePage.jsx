@@ -575,7 +575,10 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
   };
 
   const fetchDocumentBlob = async (invoiceId, doc) => {
-    const response = await api.get(`/Invoices/${invoiceId}/documents/${doc.documentId}/download`, { responseType: 'blob' });
+    const response = await api.get(`/Invoices/${invoiceId}/documents/${doc.documentId}/download`, {
+      responseType: 'blob',
+      timeout: 120000 // 2 minute timeout instead of default
+    });
     return new Blob([response.data], { type: response.data?.type || doc.contentType || 'application/octet-stream' });
   };
 
@@ -583,7 +586,9 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     const key = `download-${dossier.invoiceId}-${doc.documentId}`;
     try {
       setActiveAction(key);
+      const toastId = toast.loading(tr('Téléchargement du document...', 'جار تنزيل الوثيقة...'));
       const blob = await fetchDocumentBlob(dossier.invoiceId, doc);
+      toast.dismiss(toastId);
       const url = URL.createObjectURL(blob);
       const a = window.document.createElement('a');
       a.href = url;
@@ -592,6 +597,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      toast.success(tr('Document téléchargé avec succès.', 'تم تنزيل الوثيقة بنجاح.'));
     } catch (error) {
       toast.error(getApiErrorMessage(error, tr('Impossible de telecharger ce document.', 'تعذر تنزيل هذا المستند.')));
     } finally {
@@ -603,7 +609,9 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     const key = `preview-${dossier.invoiceId}-${doc.documentId}`;
     try {
       setActiveAction(key);
+      const toastId = toast.loading(tr('Chargement du document...', 'جار تحميل الوثيقة...'));
       const blob = await fetchDocumentBlob(dossier.invoiceId, doc);
+      toast.dismiss(toastId);
       const url = URL.createObjectURL(blob);
       const type = blob.type || doc.contentType || '';
       closePreview();
