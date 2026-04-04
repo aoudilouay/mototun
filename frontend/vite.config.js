@@ -34,12 +34,6 @@ export default defineConfig(({ mode }) => {
       target: 'esnext',
       chunkSizeWarningLimit: 900,
       cssCodeSplit: true,
-      minify: 'terser',
-      terserOptions: {
-        compress: {
-          drop_console: true,
-        },
-      },
       rollupOptions: {
         output: {
           manualChunks(id) {
