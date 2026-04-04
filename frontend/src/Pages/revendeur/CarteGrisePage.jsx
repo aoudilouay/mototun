@@ -575,32 +575,45 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
   };
 
   const fetchDocumentDirect = async (invoiceId, doc) => {
-    // Step 1: Get SAS URL from backend (fast auth-only request)
-    const { data: sasResponse } = await api.get(
-      `/Invoices/${invoiceId}/documents/${doc.documentId}/sas-url`,
-      { timeout: 10000 }
-    );
+    try {
+      // Step 1: Get SAS URL from backend (fast auth-only request)
+      const { data: sasResponse } = await api.get(
+        `/Invoices/${invoiceId}/documents/${doc.documentId}/sas-url`,
+        { timeout: 10000 }
+      );
 
-    if (!sasResponse.success || !sasResponse.data?.url) {
-      throw new Error('Failed to get document access');
+      if (!sasResponse.success || !sasResponse.data?.url) {
+        throw new Error('Failed to get document access');
+      }
+
+      // Step 2: Try to fetch directly from Azure Blob Storage
+      const sasUrl = sasResponse.data.url;
+      const blobResponse = await fetch(sasUrl, {
+        method: 'GET',
+        headers: { 'Accept': doc.contentType || '*/*' }
+      });
+
+      if (!blobResponse.ok) {
+        throw new Error(`Failed to fetch document: ${blobResponse.statusText}`);
+      }
+
+      const blob = await blobResponse.blob();
+      return new Blob([blob], {
+        type: blob.type || doc.contentType || 'application/octet-stream'
+      });
+    } catch (sasError) {
+      // Fallback: If SAS/direct fetch fails (CORS, network, etc), use backend proxy
+      console.warn('Direct Azure fetch failed, falling back to backend proxy:', sasError);
+
+      const timeout = doc.sizeBytes > 1_000_000 ? 600000 : 120000;
+      const response = await api.get(`/Invoices/${invoiceId}/documents/${doc.documentId}/download`, {
+        responseType: 'blob',
+        timeout: timeout
+      });
+      return new Blob([response.data], {
+        type: response.data?.type || doc.contentType || 'application/octet-stream'
+      });
     }
-
-    // Step 2: Fetch document directly from Azure Blob Storage (no backend proxy)
-    const sasUrl = sasResponse.data.url;
-    const blobResponse = await fetch(sasUrl, {
-      method: 'GET',
-      headers: { 'Accept': doc.contentType || '*/*' }
-    });
-
-    if (!blobResponse.ok) {
-      throw new Error(`Failed to fetch document: ${blobResponse.statusText}`);
-    }
-
-    // Step 3: Return blob for preview/download
-    const blob = await blobResponse.blob();
-    return new Blob([blob], {
-      type: blob.type || doc.contentType || 'application/octet-stream'
-    });
   };
 
   const handleDownload = async (dossier, doc) => {
