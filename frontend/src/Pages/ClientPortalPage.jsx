@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import clientPortalService from '../services/clientPortalService';
 import BrandLogo from '../components/BrandLogo';
 import DocumentPreviewModal from '../components/documents/DocumentPreviewModal';
+import { optimizeDocumentImageUpload } from '../utils/imageTransform';
 import {
   buildClientPortalViewModel,
   CLIENT_PORTAL_DOCUMENT_TYPES,
@@ -90,7 +91,8 @@ function ClientPortalPage() {
     setUploadingType(documentType);
 
     try {
-      await clientPortalService.uploadDocument(dossier.invoiceId, sessionCode, documentType, file);
+      const preparedUpload = await optimizeDocumentImageUpload(file);
+      await clientPortalService.uploadDocument(dossier.invoiceId, sessionCode, documentType, preparedUpload.file);
       await refreshDossier();
     } catch (uploadError) {
       setError(uploadError.message || 'Upload impossible.');

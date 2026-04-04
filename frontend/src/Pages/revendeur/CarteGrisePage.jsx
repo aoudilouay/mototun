@@ -4,6 +4,7 @@ import api from '../../api/axios';
 import partnershipService, { PartnershipStatus } from '../../services/partnershipService';
 import { useI18n } from '../../context/I18nContext';
 import { resolveAvatarUrl } from '../../utils/avatar';
+import { optimizeDocumentImageUpload } from '../../utils/imageTransform';
 import DocumentPreviewModal from '../../components/documents/DocumentPreviewModal';
 import {
   buildApiUrl,
@@ -812,9 +813,10 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     const key = `upload-${uploadTarget.invoiceId}-${uploadTarget.docType}`;
     try {
       setActiveAction(key);
+      const preparedUpload = await optimizeDocumentImageUpload(file);
       const data = new FormData();
       data.append('documentType', String(uploadTarget.docType));
-      data.append('file', file);
+      data.append('file', preparedUpload.file);
       await api.post(`/Invoices/${uploadTarget.invoiceId}/documents`, data);
       toast.success(isArabic ? `تم تحديث ${uploadTarget.docLabel}.` : `${uploadTarget.docLabel} mis a jour.`);
       await loadDossiers(uploadTarget.invoiceId);

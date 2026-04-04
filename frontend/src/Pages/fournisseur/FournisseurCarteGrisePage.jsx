@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import api from '../../api/axios';
 import { resolveAvatarUrl } from '../../utils/avatar';
+import { optimizeDocumentImageUpload } from '../../utils/imageTransform';
 import DocumentPreviewModal from '../../components/documents/DocumentPreviewModal';
 import {
   buildApiUrl,
@@ -744,9 +745,10 @@ function FournisseurCarteGrisePage() {
     const key = `upload-${uploadTarget.invoiceId}-${uploadTarget.docType}`;
     try {
       setActiveAction(key);
+      const preparedUpload = await optimizeDocumentImageUpload(file);
       const data = new FormData();
       data.append('documentType', String(uploadTarget.docType));
-      data.append('file', file);
+      data.append('file', preparedUpload.file);
       await api.post(`/Invoices/fournisseur/carte-grise/${uploadTarget.invoiceId}/documents`, data);
       toast.success(`${uploadTarget.docLabel} mis a jour.`);
       await loadDossiers(uploadTarget.invoiceId);
