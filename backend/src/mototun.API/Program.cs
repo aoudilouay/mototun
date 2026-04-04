@@ -350,6 +350,7 @@ builder.Services.AddScoped<IStuckDossierReminderDispatcher, StuckDossierReminder
 builder.Services.AddHostedService<StuckDossierReminderHostedService>();
 
 var app = builder.Build();
+var embeddablePreviewFrameAncestors = BuildEmbeddablePreviewFrameAncestors(configuredCorsOrigins, app.Environment.IsDevelopment());
 if (usingInMemoryDatabaseFallback)
 {
     app.Logger.LogWarning(
@@ -389,9 +390,20 @@ app.UseResponseCompression();
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
-    context.Response.Headers["X-Frame-Options"] = "DENY";
     context.Response.Headers["Referrer-Policy"] = "no-referrer";
     context.Response.Headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()";
+
+    if (IsEmbeddableDocumentPreviewPath(context.Request.Path))
+    {
+        context.Response.Headers.Remove("X-Frame-Options");
+        context.Response.Headers["Content-Security-Policy"] = embeddablePreviewFrameAncestors;
+    }
+    else
+    {
+        context.Response.Headers["X-Frame-Options"] = "DENY";
+        context.Response.Headers["Content-Security-Policy"] = "frame-ancestors 'none'";
+    }
+
     if (context.Request.IsHttps)
     {
         context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains";
@@ -690,6 +702,46 @@ static bool IsAllowedCorsOrigin(string origin, HashSet<string> configuredOrigins
     }
 
     return uri.IsLoopback || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase);
+}
+
+static string BuildEmbeddablePreviewFrameAncestors(HashSet<string> configuredOrigins, bool isDevelopment)
+{
+    var allowedOrigins = configuredOrigins
+        .Where(origin => !string.IsNullOrWhiteSpace(origin))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToList();
+
+    if (isDevelopment)
+    {
+        foreach (var developmentOrigin in new[] { "http://localhost:5173", "http://127.0.0.1:5173" })
+        {
+            if (!allowedOrigins.Contains(developmentOrigin, StringComparer.OrdinalIgnoreCase))
+            {
+                allowedOrigins.Add(developmentOrigin);
+            }
+        }
+    }
+
+    return allowedOrigins.Count == 0
+        ? "frame-ancestors 'self'"
+        : $"frame-ancestors 'self' {string.Join(' ', allowedOrigins)}";
+}
+
+static bool IsEmbeddableDocumentPreviewPath(PathString path)
+{
+    if (!path.HasValue)
+    {
+        return false;
+    }
+
+    var value = path.Value ?? string.Empty;
+    if (!value.EndsWith("/inline", StringComparison.OrdinalIgnoreCase))
+    {
+        return false;
+    }
+
+    return value.StartsWith("/api/Invoices/", StringComparison.OrdinalIgnoreCase)
+        || value.StartsWith("/api/client-portal/", StringComparison.OrdinalIgnoreCase);
 }
 
 static string? NormalizeCorsOrigin(string? origin)
