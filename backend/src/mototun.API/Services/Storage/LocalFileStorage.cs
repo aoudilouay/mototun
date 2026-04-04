@@ -76,6 +76,12 @@ public sealed class LocalFileStorage : IFileStorage
         return Task.CompletedTask;
     }
 
+    public Task<Uri?> GenerateSasUriAsync(string storageKey, TimeSpan? expiry = null, CancellationToken cancellationToken = default)
+    {
+        // Local storage doesn't support SAS URLs; return null to use regular download endpoint
+        return Task.FromResult<Uri?>(null);
+    }
+
     private string ResolveAbsolutePath(string storageKey)
     {
         return ClientPortalStoragePaths.ResolveAbsolutePath(_environment.ContentRootPath, storageKey);

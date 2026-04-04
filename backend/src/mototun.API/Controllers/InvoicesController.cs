@@ -37,6 +37,24 @@ public class UpdateInvoiceSettingsFormRequest
     public IFormFile? SignatureFile { get; set; }
 }
 
+/// <summary>
+/// Response DTO for document SAS URL (Shared Access Signature).
+/// Only returned after successful authorization check.
+/// </summary>
+public class DocumentSasUrlResponse
+{
+    /// <summary>
+    /// Azure Blob Storage SAS URL for direct document access.
+    /// Valid for ExpiresIn seconds.
+    /// </summary>
+    public required string Url { get; set; }
+
+    /// <summary>
+    /// SAS URL expiry time in seconds (typically 600 = 10 minutes).
+    /// </summary>
+    public int ExpiresIn { get; set; }
+}
+
 [Authorize]
 [ApiController]
 [Route("api/[controller]")]
@@ -2170,6 +2188,70 @@ public class InvoicesController : ControllerBase
         Response.Headers.ETag = $"\"{document.Id}-{document.UpdatedAt:O}\"";
 
         return File(stream, document.ContentType, document.OriginalFileName, enableRangeProcessing: true);
+    }
+
+    [HttpGet("{id:int}/documents/{documentId:int}/sas-url")]
+    public async Task<ActionResult<ApiResponse<DocumentSasUrlResponse>>> GetDocumentSasUrl(int id, int documentId)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var revendeurId = await GetCurrentRevendeurIdAsync(currentUserId);
+        if (!revendeurId.HasValue)
+        {
+            return Forbid();
+        }
+
+        var invoice = await _context.Invoices
+            .AsNoTracking()
+            .Where(i => i.Id == id && i.RevendeurId == revendeurId.Value)
+            .Include(i => i.ClientPortalDocuments)
+            .FirstOrDefaultAsync();
+
+        if (invoice is null)
+        {
+            return NotFound(new ApiResponse<DocumentSasUrlResponse>
+            {
+                Success = false,
+                Message = "Invoice not found"
+            });
+        }
+
+        var document = invoice.ClientPortalDocuments.FirstOrDefault(d => d.Id == documentId);
+        if (document is null)
+        {
+            return NotFound(new ApiResponse<DocumentSasUrlResponse>
+            {
+                Success = false,
+                Message = "Document not found"
+            });
+        }
+
+        // Generate SAS URL (10-minute expiry)
+        var sasUri = await _fileStorage.GenerateSasUriAsync(document.RelativePath, TimeSpan.FromMinutes(10));
+        if (sasUri is null)
+        {
+            _logger.LogWarning("Failed to generate SAS URL for document {DocumentId} in invoice {InvoiceId}", documentId, id);
+            return NotFound(new ApiResponse<DocumentSasUrlResponse>
+            {
+                Success = false,
+                Message = "File not found"
+            });
+        }
+
+        _logger.LogInformation("Generated SAS URL for document {DocumentId} for user {UserId}", documentId, currentUserId);
+
+        return Ok(new ApiResponse<DocumentSasUrlResponse>
+        {
+            Success = true,
+            Data = new DocumentSasUrlResponse
+            {
+                Url = sasUri.ToString(),
+                ExpiresIn = 600 // 10 minutes in seconds
+            }
+        });
     }
 
     [HttpPost("fournisseur/carte-grise/{id:int}/documents")]

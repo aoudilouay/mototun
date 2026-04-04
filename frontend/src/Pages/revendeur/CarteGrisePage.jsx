@@ -574,14 +574,33 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     completed: dossiers.filter((d) => d.boardStateKey === 'completed').length
   };
 
-  const fetchDocumentBlob = async (invoiceId, doc) => {
-    // For large files (>1MB), use longer timeout
-    const timeout = doc.sizeBytes > 1_000_000 ? 600000 : 120000; // 10 min for large, 2 min for small
-    const response = await api.get(`/Invoices/${invoiceId}/documents/${doc.documentId}/download`, {
-      responseType: 'blob',
-      timeout: timeout
+  const fetchDocumentDirect = async (invoiceId, doc) => {
+    // Step 1: Get SAS URL from backend (fast auth-only request)
+    const { data: sasResponse } = await api.get(
+      `/Invoices/${invoiceId}/documents/${doc.documentId}/sas-url`,
+      { timeout: 10000 }
+    );
+
+    if (!sasResponse.success || !sasResponse.data?.url) {
+      throw new Error('Failed to get document access');
+    }
+
+    // Step 2: Fetch document directly from Azure Blob Storage (no backend proxy)
+    const sasUrl = sasResponse.data.url;
+    const blobResponse = await fetch(sasUrl, {
+      method: 'GET',
+      headers: { 'Accept': doc.contentType || '*/*' }
     });
-    return new Blob([response.data], { type: response.data?.type || doc.contentType || 'application/octet-stream' });
+
+    if (!blobResponse.ok) {
+      throw new Error(`Failed to fetch document: ${blobResponse.statusText}`);
+    }
+
+    // Step 3: Return blob for preview/download
+    const blob = await blobResponse.blob();
+    return new Blob([blob], {
+      type: blob.type || doc.contentType || 'application/octet-stream'
+    });
   };
 
   const handleDownload = async (dossier, doc) => {
@@ -590,7 +609,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
       setActiveAction(key);
       const fileSizeMB = (doc.sizeBytes / (1024 * 1024)).toFixed(1);
       const toastId = toast.loading(tr(`Téléchargement du document (${fileSizeMB} MB)...`, `جار تنزيل الوثيقة (${fileSizeMB} MB)...`));
-      const blob = await fetchDocumentBlob(dossier.invoiceId, doc);
+      const blob = await fetchDocumentDirect(dossier.invoiceId, doc);
       toast.dismiss(toastId);
       const url = URL.createObjectURL(blob);
       const a = window.document.createElement('a');
@@ -614,7 +633,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
       setActiveAction(key);
       const fileSizeMB = (doc.sizeBytes / (1024 * 1024)).toFixed(1);
       const toastId = toast.loading(tr(`Chargement du document (${fileSizeMB} MB)...`, `جار تحميل الوثيقة (${fileSizeMB} MB)...`));
-      const blob = await fetchDocumentBlob(dossier.invoiceId, doc);
+      const blob = await fetchDocumentDirect(dossier.invoiceId, doc);
       toast.dismiss(toastId);
       const url = URL.createObjectURL(blob);
       const type = blob.type || doc.contentType || '';

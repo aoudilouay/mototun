@@ -6,4 +6,5 @@ public interface IFileStorage
     Task<Stream?> OpenReadAsync(string storageKey, CancellationToken cancellationToken = default);
     Task<byte[]?> ReadAllBytesAsync(string storageKey, CancellationToken cancellationToken = default);
     Task DeleteIfExistsAsync(string storageKey, CancellationToken cancellationToken = default);
+    Task<Uri?> GenerateSasUriAsync(string storageKey, TimeSpan? expiry = null, CancellationToken cancellationToken = default);
 }
