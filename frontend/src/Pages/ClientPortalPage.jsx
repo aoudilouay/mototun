@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import clientPortalService from '../services/clientPortalService';
 import BrandLogo from '../components/BrandLogo';
+import DocumentPreviewModal from '../components/documents/DocumentPreviewModal';
 import {
   buildClientPortalViewModel,
   CLIENT_PORTAL_DOCUMENT_TYPES,
@@ -12,8 +13,11 @@ import {
   formatClientPortalSize,
   getClientPortalDocumentMeta,
   normalizeClientPortalCode,
-  resolveClientPortalPreviewKind
 } from '../features/clientPortal/portalModel';
+import {
+  logDocumentPreviewMetric,
+  resolveDocumentPreviewKind
+} from '../features/documents/documentPreview';
 
 function ClientPortalPage() {
   const [portalCode, setPortalCode] = useState('');
@@ -29,7 +33,8 @@ function ClientPortalPage() {
     title: '',
     kind: '',
     mimeType: '',
-    url: ''
+    url: '',
+    startedAt: 0
   });
 
   const {
@@ -42,14 +47,6 @@ function ClientPortalPage() {
     progressMeta,
     portalMessages
   } = useMemo(() => buildClientPortalViewModel(dossier), [dossier]);
-
-  useEffect(() => {
-    return () => {
-      if (preview.url?.startsWith('blob:')) {
-        URL.revokeObjectURL(preview.url);
-      }
-    };
-  }, [preview.url]);
 
   const handleAccess = async (event) => {
     event.preventDefault();
@@ -118,54 +115,115 @@ function ClientPortalPage() {
       title: '',
       kind: '',
       mimeType: '',
-      url: ''
+      url: '',
+      startedAt: 0
     }));
   };
 
-  const openPreview = async (url, title = 'Document') => {
-    if (!url) {
+  const markPreviewReady = () => {
+    setPreview((prev) => {
+      if (!prev.open || !prev.loading) {
+        return prev;
+      }
+
+      if (Number.isFinite(prev.startedAt) && prev.startedAt > 0) {
+        logDocumentPreviewMetric('visible', {
+          title: prev.title,
+          kind: prev.kind,
+          visibleMs: Math.round(performance.now() - prev.startedAt)
+        });
+      }
+
+      return {
+        ...prev,
+        loading: false
+      };
+    });
+  };
+
+  const handlePreviewAssetError = () => {
+    setPreview((prev) => ({
+      ...prev,
+      loading: false,
+      error: 'Apercu indisponible. Reessayez dans quelques instants.'
+    }));
+  };
+
+  const openInvoicePdfPreview = () => {
+    if (!dossier?.invoiceId || !sessionCode) {
       return;
     }
 
-    setPreview((prev) => ({
-      ...prev,
+    const startedAt = performance.now();
+    setPreview({
+      open: true,
+      loading: true,
+      error: '',
+      title: `Facture ${dossier.invoiceNumber || `${dossier.invoiceId}`}.pdf`,
+      kind: 'pdf',
+      mimeType: 'application/pdf',
+      url: clientPortalService.getInvoicePdfInlineUrl(dossier.invoiceId, sessionCode),
+      startedAt
+    });
+  };
+
+  const openPreview = async (document) => {
+    if (!document?.documentId || !dossier?.invoiceId || !sessionCode) {
+      return;
+    }
+
+    const title = document.fileName || document.documentLabel || 'Document';
+    const kind = resolveDocumentPreviewKind(document.contentType, title);
+    const startedAt = performance.now();
+
+    setPreview({
       open: true,
       loading: true,
       error: '',
       title,
-      kind: '',
-      mimeType: '',
-      url: ''
-    }));
+      kind,
+      mimeType: document.contentType || '',
+      url: '',
+      startedAt
+    });
 
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error('Impossible de charger ce document.');
-      }
-
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const kind = resolveClientPortalPreviewKind(blob.type, title);
-
-      setPreview({
-        open: true,
-        loading: false,
-        error: '',
-        title,
-        kind,
-        mimeType: blob.type || '',
-        url: blobUrl
-      });
-    } catch (previewError) {
+    if (kind === 'other') {
       setPreview((prev) => ({
         ...prev,
-        loading: false,
-        error: previewError?.message || 'Apercu indisponible.',
-        kind: '',
-        mimeType: '',
-        url: ''
+        loading: false
       }));
+      return;
+    }
+
+    try {
+      const access = await clientPortalService.getDocumentAccessUrl(dossier.invoiceId, document.documentId, sessionCode);
+      logDocumentPreviewMetric('access-url-prepared', {
+        title,
+        kind,
+        sizeBytes: document.sizeBytes,
+        mimeType: document.contentType,
+        accessMs: Math.round(performance.now() - startedAt)
+      });
+
+      setPreview((prev) => ({
+        ...prev,
+        url: access.url
+      }));
+    } catch (previewError) {
+      const fallbackUrl = clientPortalService.getInlinePreviewUrl(dossier.invoiceId, document.documentId, sessionCode);
+      setPreview((prev) => ({
+        ...prev,
+        url: fallbackUrl,
+        error: '',
+        loading: true
+      }));
+      logDocumentPreviewMetric('access-url-fallback-inline', {
+        title,
+        kind,
+        sizeBytes: document.sizeBytes,
+        mimeType: document.contentType,
+        reason: previewError?.message || 'fallback'
+      });
     }
   };
 
@@ -253,17 +311,12 @@ function ClientPortalPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 sm:flex sm:flex-wrap sm:justify-end">
-              <button
-                type="button"
-                onClick={() =>
-                  openPreview(
-                    clientPortalService.getInvoicePdfUrl(dossier.invoiceId, sessionCode),
-                    `Facture ${dossier.invoiceNumber || `${dossier.invoiceId}`}.pdf`
-                  )
-                }
-                className="px-4 py-2.5 text-sm rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-center font-semibold"
-              >
-                Facture PDF
+                <button
+                  type="button"
+                  onClick={openInvoicePdfPreview}
+                  className="px-4 py-2.5 text-sm rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-center font-semibold"
+                >
+                  Facture PDF
               </button>
               <button
                 onClick={handleLogout}
@@ -379,12 +432,7 @@ function ClientPortalPage() {
                   </div>
                   <button
                     type="button"
-                    onClick={() =>
-                      openPreview(
-                        clientPortalService.getInvoicePdfUrl(dossier.invoiceId, sessionCode),
-                        `Facture ${dossier.invoiceNumber || `${dossier.invoiceId}`}.pdf`
-                      )
-                    }
+                    onClick={openInvoicePdfPreview}
                     className="mt-4 inline-flex w-full items-center justify-center px-4 py-3 rounded-2xl bg-slate-100 border border-slate-200 text-slate-700 font-semibold hover:bg-slate-200"
                   >
                     Voir la facture
@@ -408,10 +456,6 @@ function ClientPortalPage() {
                 const inputId = `upload-${type.key}`;
                 const isUploading = uploadingType === type.value;
                 const docMeta = getClientPortalDocumentMeta(existing, type.required);
-                const downloadHref = existing
-                  ? clientPortalService.getDownloadUrl(dossier.invoiceId, existing.documentId, sessionCode)
-                  : '';
-
                 return (
                   <div
                     key={type.value}
@@ -441,7 +485,7 @@ function ClientPortalPage() {
                       {existing ? (
                         <button
                           type="button"
-                          onClick={() => openPreview(downloadHref, existing.fileName || type.label)}
+                          onClick={() => openPreview(existing)}
                           className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-100 sm:w-auto sm:text-base"
                         >
                           Voir
@@ -577,56 +621,20 @@ function ClientPortalPage() {
           </div>
         </details>
 
-        {preview.open && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/65 px-4 py-6">
-            <div className="w-full max-w-5xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
-              <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 sm:px-5">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-900">{preview.title || 'Apercu document'}</p>
-                  <p className="text-xs text-slate-500">Apercu uniquement (telechargement desactive)</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={closePreview}
-                  className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-                >
-                  Fermer
-                </button>
-              </div>
-
-              <div className="h-[70vh] bg-slate-100">
-                {preview.loading ? (
-                  <div className="flex h-full items-center justify-center text-sm font-medium text-slate-600">
-                    Chargement du document...
-                  </div>
-                ) : preview.error ? (
-                  <div className="flex h-full items-center justify-center px-6 text-center text-sm font-medium text-rose-700">
-                    {preview.error}
-                  </div>
-                ) : preview.url && preview.kind === 'image' ? (
-                  <div className="flex h-full items-center justify-center overflow-auto p-4">
-                    <img
-                      src={preview.url}
-                      alt={preview.title || 'Apercu document'}
-                      className="max-h-full max-w-full object-contain select-none"
-                      draggable={false}
-                    />
-                  </div>
-                ) : preview.url && preview.kind === 'pdf' ? (
-                  <iframe
-                    title={preview.title || 'Apercu PDF'}
-                    src={`${preview.url}#toolbar=0&navpanes=0&scrollbar=1`}
-                    className="h-full w-full"
-                  />
-                ) : (
-                  <div className="flex h-full items-center justify-center px-6 text-center text-sm font-medium text-slate-600">
-                    Apercu indisponible pour ce type de document.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        <DocumentPreviewModal
+          preview={preview.open ? {
+            ...preview,
+            fileName: preview.title,
+            subtitle: 'Apercu uniquement (telechargement desactive)',
+            dossierId: undefined
+          } : null}
+          onClose={closePreview}
+          onReady={markPreviewReady}
+          onAssetError={handlePreviewAssetError}
+          loadingLabel="Chargement du document..."
+          loadingHint="La fenetre de preview s'ouvre tout de suite, puis le document se charge en streaming."
+          unsupportedLabel="Apercu indisponible pour ce type de document."
+        />
       </main>
     </div>
   );

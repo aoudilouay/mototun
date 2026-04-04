@@ -12,6 +12,7 @@ using mototun.Core.Entities;
 using mototun.Core.Enums;
 using mototun.Infrastructure.Data;
 using System.Text.Json;
+using System.Diagnostics;
 
 namespace mototun.API.Controllers;
 
@@ -152,11 +153,47 @@ public class ClientPortalController : ControllerBase
         return File(bytes, "application/pdf", BuildFactureFileName(invoice));
     }
 
+    [EnableRateLimiting("ClientPortalRead")]
+    [HttpGet("{invoiceId:int}/invoice-pdf/inline")]
+    public async Task<IActionResult> PreviewInvoicePdf(int invoiceId, [FromQuery] string code)
+    {
+        var normalizedCode = NormalizeCode(code);
+        if (string.IsNullOrWhiteSpace(normalizedCode))
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Code invalide"
+            });
+        }
+
+        var invoice = await LoadInvoiceGraphAsync(invoiceId, asNoTracking: true);
+        if (invoice is null || !HasAccess(invoice, normalizedCode))
+        {
+            return Unauthorized(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Acces refuse"
+            });
+        }
+
+        var customization = await BuildInvoicePdfCustomizationAsync(invoice.RevendeurId, HttpContext.RequestAborted);
+        var bytes = InvoicePdfBuilder.Build(invoice, customization);
+        ApplyPrivateDocumentCacheHeaders($"invoice-pdf-{invoice.Id}", invoice.UpdatedAt);
+        Response.Headers["Content-Disposition"] = BuildInlineContentDisposition(BuildFactureFileName(invoice));
+
+        return new FileContentResult(bytes, "application/pdf")
+        {
+            EnableRangeProcessing = true
+        };
+    }
+
     [EnableRateLimiting("ClientPortalAccess")]
     [HttpPost("{invoiceId:int}/documents")]
     [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadBytes)]
     public async Task<ActionResult<ApiResponse<ClientPortalUploadResultDto>>> UploadDocument(int invoiceId, [FromForm] UploadClientPortalDocumentForm form)
     {
+        var uploadStopwatch = Stopwatch.StartNew();
         var normalizedCode = NormalizeCode(form.Code);
         if (string.IsNullOrWhiteSpace(normalizedCode))
         {
@@ -271,6 +308,16 @@ public class ClientPortalController : ControllerBase
 
         await DeleteStoredFilesAsync(mutation.ReplacedRelativePath, mutation.DuplicateRelativePaths, HttpContext.RequestAborted);
         TryDeleteTemporaryFile(tempFilePath);
+        uploadStopwatch.Stop();
+
+        _logger.LogInformation(
+            "Client portal document upload stored for invoice {InvoiceId}. DocumentType={DocumentType}. SizeBytes={SizeBytes}. ContentType={ContentType}. OptimizationApplied={OptimizationApplied}. TotalMs={TotalMs}",
+            invoice.Id,
+            documentType,
+            form.File.Length,
+            storedFile.ContentType,
+            false,
+            uploadStopwatch.ElapsedMilliseconds);
 
         return Ok(new ApiResponse<ClientPortalUploadResultDto>
         {
@@ -330,7 +377,133 @@ public class ClientPortalController : ControllerBase
             });
         }
 
-        return File(stream, document.ContentType, document.OriginalFileName);
+        return CreateAttachmentDocumentResponse(stream, document);
+    }
+
+    [EnableRateLimiting("ClientPortalRead")]
+    [HttpGet("{invoiceId:int}/documents/{documentId:int}/inline")]
+    public async Task<IActionResult> PreviewDocument(int invoiceId, int documentId, [FromQuery] string code)
+    {
+        var normalizedCode = NormalizeCode(code);
+        if (string.IsNullOrWhiteSpace(normalizedCode))
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Code invalide"
+            });
+        }
+
+        var invoice = await LoadInvoiceGraphAsync(invoiceId, asNoTracking: true);
+        if (invoice is null || !HasAccess(invoice, normalizedCode))
+        {
+            return Unauthorized(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Acces refuse"
+            });
+        }
+
+        var document = invoice.ClientPortalDocuments.FirstOrDefault(d => d.Id == documentId);
+        if (document is null)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Document introuvable"
+            });
+        }
+
+        var stream = await _fileStorage.OpenReadAsync(document.RelativePath, HttpContext.RequestAborted);
+        if (stream is null)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Fichier introuvable"
+            });
+        }
+
+        return CreateInlineDocumentResponse(stream, document);
+    }
+
+    [EnableRateLimiting("ClientPortalRead")]
+    [HttpGet("{invoiceId:int}/documents/{documentId:int}/access-url")]
+    public async Task<ActionResult<ApiResponse<DocumentAccessUrlDto>>> GetDocumentAccessUrl(int invoiceId, int documentId, [FromQuery] string code)
+    {
+        var authorizationStopwatch = Stopwatch.StartNew();
+        var normalizedCode = NormalizeCode(code);
+        if (string.IsNullOrWhiteSpace(normalizedCode))
+        {
+            return BadRequest(new ApiResponse<DocumentAccessUrlDto>
+            {
+                Success = false,
+                Message = "Code invalide"
+            });
+        }
+
+        var invoice = await LoadInvoiceGraphAsync(invoiceId, asNoTracking: true);
+        authorizationStopwatch.Stop();
+        if (invoice is null || !HasAccess(invoice, normalizedCode))
+        {
+            return Unauthorized(new ApiResponse<DocumentAccessUrlDto>
+            {
+                Success = false,
+                Message = "Acces refuse"
+            });
+        }
+
+        var document = invoice.ClientPortalDocuments.FirstOrDefault(d => d.Id == documentId);
+        if (document is null)
+        {
+            return NotFound(new ApiResponse<DocumentAccessUrlDto>
+            {
+                Success = false,
+                Message = "Document introuvable"
+            });
+        }
+
+        var accessStopwatch = Stopwatch.StartNew();
+        var inlineUrl = Url.ActionLink(
+            nameof(PreviewDocument),
+            values: new { invoiceId, documentId, code = normalizedCode });
+        var sasUri = await _fileStorage.GenerateSasUriAsync(
+            document.RelativePath,
+            TimeSpan.FromMinutes(10),
+            HttpContext.RequestAborted);
+        accessStopwatch.Stop();
+
+        var resolvedUrl = sasUri?.ToString() ?? inlineUrl;
+        if (string.IsNullOrWhiteSpace(resolvedUrl))
+        {
+            _logger.LogWarning("Failed to build client portal preview URL for invoice {InvoiceId} document {DocumentId}", invoiceId, documentId);
+            return NotFound(new ApiResponse<DocumentAccessUrlDto>
+            {
+                Success = false,
+                Message = "Fichier introuvable"
+            });
+        }
+
+        _logger.LogInformation(
+            "Prepared client portal document access URL for invoice {InvoiceId} document {DocumentId}. DeliveryMode={DeliveryMode}. AuthMs={AuthMs}. AccessMs={AccessMs}. SizeBytes={SizeBytes}. ContentType={ContentType}",
+            invoiceId,
+            documentId,
+            sasUri is null ? "inline-proxy" : "blob-sas",
+            authorizationStopwatch.ElapsedMilliseconds,
+            accessStopwatch.ElapsedMilliseconds,
+            document.SizeBytes,
+            document.ContentType);
+
+        return Ok(new ApiResponse<DocumentAccessUrlDto>
+        {
+            Success = true,
+            Message = "Acces document prepare",
+            Data = new DocumentAccessUrlDto
+            {
+                Url = resolvedUrl,
+                ExpiresIn = 600
+            }
+        });
     }
 
     private async Task<IReadOnlyCollection<DocumentValidationReason>> TryApplyAutomaticValidationAsync(
@@ -814,6 +987,48 @@ public class ClientPortalController : ControllerBase
     {
         var safe = Path.GetFileName(fileName);
         return string.IsNullOrWhiteSpace(safe) ? $"document-{Guid.NewGuid():N}" : safe;
+    }
+
+    private IActionResult CreateAttachmentDocumentResponse(Stream stream, ClientPortalDocument document)
+    {
+        ApplyPrivateDocumentCacheHeaders($"document-{document.Id}", document.UpdatedAt);
+        return new FileStreamResult(stream, ResolveContentType(document.ContentType))
+        {
+            FileDownloadName = document.OriginalFileName,
+            EnableRangeProcessing = true
+        };
+    }
+
+    private IActionResult CreateInlineDocumentResponse(Stream stream, ClientPortalDocument document)
+    {
+        ApplyPrivateDocumentCacheHeaders($"document-{document.Id}", document.UpdatedAt);
+        Response.Headers["Content-Disposition"] = BuildInlineContentDisposition(document.OriginalFileName);
+
+        return new FileStreamResult(stream, ResolveContentType(document.ContentType))
+        {
+            EnableRangeProcessing = true
+        };
+    }
+
+    private void ApplyPrivateDocumentCacheHeaders(string cacheKey, DateTime updatedAt)
+    {
+        Response.Headers.CacheControl = "private, max-age=600, must-revalidate";
+        Response.Headers.ETag = $"\"{cacheKey}-{updatedAt.Ticks}\"";
+    }
+
+    private static string ResolveContentType(string? contentType)
+    {
+        return string.IsNullOrWhiteSpace(contentType)
+            ? "application/octet-stream"
+            : contentType;
+    }
+
+    private static string BuildInlineContentDisposition(string? fileName)
+    {
+        var safeFileName = string.IsNullOrWhiteSpace(fileName)
+            ? $"document-{Guid.NewGuid():N}"
+            : fileName;
+        return $"inline; filename*=UTF-8''{Uri.EscapeDataString(safeFileName)}";
     }
 
     private static string ResolveUploadExtension(IFormFile file)

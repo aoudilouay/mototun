@@ -4,6 +4,13 @@ import api from '../../api/axios';
 import partnershipService, { PartnershipStatus } from '../../services/partnershipService';
 import { useI18n } from '../../context/I18nContext';
 import { resolveAvatarUrl } from '../../utils/avatar';
+import DocumentPreviewModal from '../../components/documents/DocumentPreviewModal';
+import {
+  buildApiUrl,
+  logDocumentPreviewMetric,
+  resolveDocumentPreviewKind,
+  startBrowserDownload
+} from '../../features/documents/documentPreview';
 
 const DOCUMENT_CATALOG = [
   { type: 6, key: 'cin_front', label: 'CIN Front', labelAr: 'البطاقة الوطنية - الوجه الأمامي', hint: 'Recto CIN', hintAr: 'واجهة البطاقة الوطنية', required: true },
@@ -119,6 +126,11 @@ function extractApiData(response) {
   return Array.isArray(response?.data?.data) ? response.data.data : [];
 }
 
+function extractSingleApiData(response) {
+  const payload = response?.data?.data;
+  return payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : null;
+}
+
 function getApiErrorMessage(error, fallbackMessage) {
   const apiMessage = error?.response?.data?.message || error?.response?.data?.Message;
   if (apiMessage) return apiMessage;
@@ -224,7 +236,41 @@ function normalizeStatus(raw) {
   }
 }
 
-function mapDocuments(docsRaw) {
+function buildDocumentFallbackMap(invoice) {
+  const byType = new Map();
+
+  if (invoice?.isCinUploaded || invoice?.isCinFrontUploaded) {
+    byType.set(6, { documentType: 6, isPlaceholder: true });
+  }
+
+  if (invoice?.isCinUploaded || invoice?.isCinBackUploaded) {
+    byType.set(7, { documentType: 7, isPlaceholder: true });
+  }
+
+  if (invoice?.isFactureUploaded) {
+    byType.set(3, { documentType: 3, isPlaceholder: true });
+  }
+
+  if (invoice?.isDeclarationUploaded) {
+    byType.set(1, { documentType: 1, isPlaceholder: true });
+  }
+
+  if (invoice?.isJustificatifUploaded) {
+    byType.set(2, { documentType: 2, isPlaceholder: true });
+  }
+
+  if (invoice?.isCarteGriseUploaded) {
+    byType.set(4, { documentType: 4, isPlaceholder: true });
+  }
+
+  if (Number(invoice?.documentCount) > 0) {
+    byType.set(5, { documentType: 5, isPlaceholder: true });
+  }
+
+  return byType;
+}
+
+function mapDocuments(docsRaw, invoice) {
   const docs = Array.isArray(docsRaw) ? docsRaw : [];
   const byType = new Map();
   for (const doc of docs) {
@@ -233,10 +279,11 @@ function mapDocuments(docsRaw) {
       byType.set(type, doc);
     }
   }
-  const legacyCin = byType.get(0);
+  const fallbackByType = buildDocumentFallbackMap(invoice);
+  const legacyCin = byType.get(0) || fallbackByType.get(0);
   return DOCUMENT_CATALOG.map((item) => {
     const fromLegacy = Boolean(!byType.get(item.type) && (item.type === 6 || item.type === 7) && legacyCin);
-    let doc = byType.get(item.type);
+    let doc = byType.get(item.type) || fallbackByType.get(item.type);
     if (!doc && (item.type === 6 || item.type === 7) && legacyCin) {
       doc = legacyCin;
     }
@@ -248,6 +295,7 @@ function mapDocuments(docsRaw) {
       contentType: doc?.contentType ?? null,
       sizeBytes: doc?.sizeBytes ?? 0,
       updatedAt: doc?.updatedAt ?? null,
+      isPlaceholder: Boolean(doc?.isPlaceholder) && !doc?.documentId,
       fromLegacy
     };
   });
@@ -308,7 +356,7 @@ function getWorkflowStepIndex(boardStateKey) {
 function mapInvoiceToDossier(invoice, locale = 'fr-FR') {
   const sold = Array.isArray(invoice?.soldMotorcycles) ? invoice.soldMotorcycles[0] || {} : {};
   const status = normalizeStatus(invoice?.carteGriseStatus);
-  const documents = mapDocuments(invoice?.documents);
+  const documents = mapDocuments(invoice?.documents, invoice);
   const requiredDocs = documents.filter((doc) => doc.required);
   const uploadedRequired = requiredDocs.filter((doc) => doc.uploaded).length;
   const missingRequiredDocuments = requiredDocs.filter((doc) => !doc.uploaded);
@@ -406,10 +454,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
   const fileInputRef = useRef(null);
 
   const closePreview = useCallback(() => {
-    setPreview((prev) => {
-      if (prev?.url?.startsWith('blob:')) URL.revokeObjectURL(prev.url);
-      return null;
-    });
+    setPreview(null);
   }, []);
 
   const closeDetailsModal = useCallback(() => {
@@ -464,12 +509,6 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     }
   }, [closeDetailsModal, detailsModal.open, openDossier]);
 
-  useEffect(() => () => {
-    if (preview?.url?.startsWith('blob:')) {
-      URL.revokeObjectURL(preview.url);
-    }
-  }, [preview?.url]);
-
   useEffect(() => {
     setIssueDraft(openDossier?.documentIssueMessage || '');
     setClientMessageDraft(openDossier?.clientUpdateMessage || '');
@@ -490,7 +529,31 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
       const next = extractApiData(response).map((invoice) => mapInvoiceToDossier(invoice, locale));
       setDossiers(next);
       if (keepOpenInvoiceId) {
-        setOpenDossier(next.find((item) => item.invoiceId === keepOpenInvoiceId) || null);
+        const summary = next.find((item) => item.invoiceId === keepOpenInvoiceId) || null;
+        if (!summary) {
+          setOpenDossier(null);
+          return;
+        }
+
+        setOpenDossier(summary);
+
+        try {
+          const detailResponse = await api.get(`/Invoices/${keepOpenInvoiceId}`);
+          const detail = extractSingleApiData(detailResponse);
+          if (!detail) {
+            return;
+          }
+
+          const hydrated = mapInvoiceToDossier(detail, locale);
+          setDossiers((current) => current.map((item) => (
+            item.invoiceId === keepOpenInvoiceId ? { ...item, ...hydrated } : item
+          )));
+          setOpenDossier((current) => (
+            current?.invoiceId === keepOpenInvoiceId ? hydrated : current
+          ));
+        } catch {
+          // Keep the summary state visible if the detail fetch fails.
+        }
       }
     } catch (error) {
       toast.error(getApiErrorMessage(error, tr('Impossible de charger les dossiers carte grise.', 'تعذر تحميل ملفات البطاقة الرمادية.')));
@@ -498,6 +561,32 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
       setLoading(false);
     }
   }, [locale, tr]);
+
+  const openDossierWithDetails = useCallback(async (dossier) => {
+    setOpenDossier(dossier);
+
+    if (!dossier?.invoiceId) {
+      return;
+    }
+
+    try {
+      const response = await api.get(`/Invoices/${dossier.invoiceId}`);
+      const detail = extractSingleApiData(response);
+      if (!detail) {
+        return;
+      }
+
+      const hydrated = mapInvoiceToDossier(detail, locale);
+      setDossiers((current) => current.map((item) => (
+        item.invoiceId === dossier.invoiceId ? { ...item, ...hydrated } : item
+      )));
+      setOpenDossier((current) => (
+        current?.invoiceId === dossier.invoiceId ? hydrated : current
+      ));
+    } catch {
+      // Keep the summary state visible if the detail fetch fails.
+    }
+  }, [locale]);
 
   const loadConnectedFournisseurs = useCallback(async () => {
     try {
@@ -574,65 +663,35 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     completed: dossiers.filter((d) => d.boardStateKey === 'completed').length
   };
 
-  const fetchDocumentDirect = async (invoiceId, doc) => {
+  const resolveDocumentAccessUrl = async (invoiceId, doc) => {
+    const fallbackUrl = buildApiUrl(`/Invoices/${invoiceId}/documents/${doc.documentId}/inline`);
+
     try {
-      // Step 1: Get SAS URL from backend (fast auth-only request)
-      const { data: sasResponse } = await api.get(
+      const { data: accessResponse } = await api.get(
         `/Invoices/${invoiceId}/documents/${doc.documentId}/sas-url`,
         { timeout: 10000 }
       );
 
-      if (!sasResponse.success || !sasResponse.data?.url) {
-        throw new Error('Failed to get document access');
+      if (accessResponse.success && accessResponse.data?.url) {
+        return accessResponse.data.url;
       }
-
-      // Step 2: Try to fetch directly from Azure Blob Storage
-      const sasUrl = sasResponse.data.url;
-      const blobResponse = await fetch(sasUrl, {
-        method: 'GET',
-        headers: { 'Accept': doc.contentType || '*/*' }
-      });
-
-      if (!blobResponse.ok) {
-        throw new Error(`Failed to fetch document: ${blobResponse.statusText}`);
-      }
-
-      const blob = await blobResponse.blob();
-      return new Blob([blob], {
-        type: blob.type || doc.contentType || 'application/octet-stream'
-      });
-    } catch (sasError) {
-      // Fallback: If SAS/direct fetch fails (CORS, network, etc), use backend proxy
-      console.warn('Direct Azure fetch failed, falling back to backend proxy:', sasError);
-
-      const timeout = doc.sizeBytes > 1_000_000 ? 600000 : 120000;
-      const response = await api.get(`/Invoices/${invoiceId}/documents/${doc.documentId}/download`, {
-        responseType: 'blob',
-        timeout: timeout
-      });
-      return new Blob([response.data], {
-        type: response.data?.type || doc.contentType || 'application/octet-stream'
+    } catch (accessError) {
+      logDocumentPreviewMetric('revendeur-access-url-fallback-inline', {
+        invoiceId,
+        documentId: doc.documentId,
+        reason: accessError?.message || 'fallback'
       });
     }
+
+    return fallbackUrl;
   };
 
   const handleDownload = async (dossier, doc) => {
     const key = `download-${dossier.invoiceId}-${doc.documentId}`;
     try {
       setActiveAction(key);
-      const fileSizeMB = (doc.sizeBytes / (1024 * 1024)).toFixed(1);
-      const toastId = toast.loading(tr(`Téléchargement du document (${fileSizeMB} MB)...`, `جار تنزيل الوثيقة (${fileSizeMB} MB)...`));
-      const blob = await fetchDocumentDirect(dossier.invoiceId, doc);
-      toast.dismiss(toastId);
-      const url = URL.createObjectURL(blob);
-      const a = window.document.createElement('a');
-      a.href = url;
-      a.download = doc.fileName || `${doc.key}.file`;
-      window.document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      toast.success(tr('Document téléchargé avec succès.', 'تم تنزيل الوثيقة بنجاح.'));
+      startBrowserDownload(buildApiUrl(`/Invoices/${dossier.invoiceId}/documents/${doc.documentId}/download`));
+      toast.success(tr('Telechargement lance.', 'تم بدء التنزيل.'));
     } catch (error) {
       toast.error(getApiErrorMessage(error, tr('Impossible de telecharger ce document.', 'تعذر تنزيل هذا المستند.')));
     } finally {
@@ -642,27 +701,99 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
 
   const handlePreview = async (dossier, doc) => {
     const key = `preview-${dossier.invoiceId}-${doc.documentId}`;
+    const title = doc.fileName || (isArabic ? doc.labelAr : doc.label);
+    const kind = resolveDocumentPreviewKind(doc.contentType, title);
+    const startedAt = performance.now();
+
     try {
       setActiveAction(key);
-      const fileSizeMB = (doc.sizeBytes / (1024 * 1024)).toFixed(1);
-      const toastId = toast.loading(tr(`Chargement du document (${fileSizeMB} MB)...`, `جار تحميل الوثيقة (${fileSizeMB} MB)...`));
-      const blob = await fetchDocumentDirect(dossier.invoiceId, doc);
-      toast.dismiss(toastId);
-      const url = URL.createObjectURL(blob);
-      const type = blob.type || doc.contentType || '';
       closePreview();
       setPreview({
+        url: '',
+        kind,
+        fileName: title,
+        dossierId: dossier.id,
+        loading: true,
+        error: '',
+        startedAt
+      });
+
+      if (kind === 'other') {
+        setPreview({
+          url: '',
+          kind,
+          fileName: title,
+          dossierId: dossier.id,
+          loading: false,
+          error: '',
+          startedAt
+        });
+        return;
+      }
+
+      const url = await resolveDocumentAccessUrl(dossier.invoiceId, doc);
+      logDocumentPreviewMetric('revendeur-access-url-prepared', {
+        invoiceId: dossier.invoiceId,
+        documentId: doc.documentId,
+        sizeBytes: doc.sizeBytes,
+        kind,
+        accessMs: Math.round(performance.now() - startedAt)
+      });
+
+      setPreview({
         url,
-        kind: type.includes('pdf') ? 'pdf' : type.startsWith('image/') ? 'image' : 'other',
-        fileName: doc.fileName || (isArabic ? doc.labelAr : doc.label),
-        dossierId: dossier.id
+        kind,
+        fileName: title,
+        dossierId: dossier.id,
+        loading: true,
+        error: '',
+        startedAt
       });
     } catch (error) {
-      toast.error(getApiErrorMessage(error, tr('Impossible d ouvrir ce document.', 'تعذر فتح هذا المستند.')));
+      setPreview({
+        url: '',
+        kind,
+        fileName: title,
+        dossierId: dossier.id,
+        loading: false,
+        error: getApiErrorMessage(error, tr('Impossible d ouvrir ce document.', 'تعذر فتح هذا المستند.')),
+        startedAt
+      });
     } finally {
       setActiveAction('');
     }
   };
+
+  const markPreviewReady = useCallback(() => {
+    setPreview((prev) => {
+      if (!prev?.loading) {
+        return prev;
+      }
+
+      logDocumentPreviewMetric('revendeur-preview-visible', {
+        fileName: prev.fileName,
+        kind: prev.kind,
+        visibleMs: Math.round(performance.now() - (prev.startedAt || performance.now()))
+      });
+
+      return {
+        ...prev,
+        loading: false
+      };
+    });
+  }, []);
+
+  const handlePreviewAssetError = useCallback(() => {
+    setPreview((prev) => (
+      prev
+        ? {
+          ...prev,
+          loading: false,
+          error: tr('Apercu indisponible. Reessayez dans quelques instants.', 'المعاينة غير متاحة حاليا. حاول مرة أخرى بعد قليل.')
+        }
+        : prev
+    ));
+  }, [tr]);
 
   const startUpload = (dossier, doc) => {
     setUploadTarget({ invoiceId: dossier.invoiceId, docType: doc.type, docLabel: isArabic ? doc.labelAr : doc.label });
@@ -969,7 +1100,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     if (dossier.boardStateKey === 'missing_docs') {
       return {
         label: tr('Ajouter documents', 'اضافة الوثائق'),
-        onClick: () => setOpenDossier(dossier),
+        onClick: () => openDossierWithDetails(dossier),
         disabled: false
       };
     }
@@ -985,7 +1116,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     if (dossier.boardStateKey === 'sent') {
       return {
         label: tr('Suivre dossier', 'متابعة الملف'),
-        onClick: () => setOpenDossier(dossier),
+        onClick: () => openDossierWithDetails(dossier),
         disabled: false
       };
     }
@@ -993,14 +1124,14 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     if (dossier.boardStateKey === 'processing') {
       return {
         label: tr('Voir details', 'عرض التفاصيل'),
-        onClick: () => setOpenDossier(dossier),
+        onClick: () => openDossierWithDetails(dossier),
         disabled: false
       };
     }
 
     return {
       label: tr('Voir dossier', 'عرض الملف'),
-      onClick: () => setOpenDossier(dossier),
+      onClick: () => openDossierWithDetails(dossier),
       disabled: false
     };
   };
@@ -1062,7 +1193,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     actions.push({
       key: `details-${dossier.invoiceId}`,
       label: tr('Details', 'تفاصيل'),
-      onClick: () => setOpenDossier(dossier),
+      onClick: () => openDossierWithDetails(dossier),
       disabled: false,
       tone: 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50'
     });
@@ -1598,7 +1729,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
                           )}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                          {doc.uploaded && <>
+                          {doc.uploaded && doc.documentId && <>
                             <button onClick={() => handlePreview(openDossier, doc)} disabled={activeAction === previewKey} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">{activeAction === previewKey ? tr('Ouverture...', 'جار الفتح...') : tr('Voir', 'عرض')}</button>
                             <button onClick={() => handleDownload(openDossier, doc)} disabled={activeAction === downloadKey} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">{activeAction === downloadKey ? tr('Chargement...', 'جار التحميل...') : tr('Telecharger', 'تنزيل')}</button>
                           </>}
@@ -1830,21 +1961,19 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
         </div>
       )}
 
-      {preview && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-[2px]" onClick={closePreview}>
-          <div className="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <div><p className="text-sm font-bold text-slate-900">{preview.fileName}</p><p className="text-xs text-slate-500">{preview.dossierId}</p></div>
-              <button onClick={closePreview} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">{tr('Fermer', 'إغلاق')}</button>
-            </div>
-            <div className="max-h-[74vh] overflow-auto p-4">
-              {preview.kind === 'image' && <img src={preview.url} alt={preview.fileName} className="mx-auto max-h-[66vh] rounded-lg border border-slate-200" loading="lazy" decoding="async" />}
-              {preview.kind === 'pdf' && <iframe title={preview.fileName} src={preview.url} className="h-[66vh] w-full rounded-lg border border-slate-200" />}
-              {preview.kind === 'other' && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-6 text-center text-sm text-slate-700">{tr('Apercu non supporte pour ce format.', 'المعاينة غير مدعومة لهذا النوع.')}</div>}
-            </div>
-          </div>
-        </div>
-      )}
+      <DocumentPreviewModal
+        preview={preview}
+        onClose={closePreview}
+        onReady={markPreviewReady}
+        onAssetError={handlePreviewAssetError}
+        closeLabel={tr('Fermer', 'إغلاق')}
+        loadingLabel={tr('Chargement du document...', 'جار تحميل الوثيقة...')}
+        loadingHint={tr(
+          "La fenetre s'ouvre immediatement puis le document se charge en streaming.",
+          'تفتح النافذة فوراً ثم يتم تحميل الوثيقة تدريجياً.'
+        )}
+        unsupportedLabel={tr('Apercu non supporte pour ce format.', 'المعاينة غير مدعومة لهذا النوع.')}
+      />
     </div>
   );
 }

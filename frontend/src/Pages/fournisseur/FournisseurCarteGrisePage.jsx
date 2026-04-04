@@ -2,6 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import api from '../../api/axios';
 import { resolveAvatarUrl } from '../../utils/avatar';
+import DocumentPreviewModal from '../../components/documents/DocumentPreviewModal';
+import {
+  buildApiUrl,
+  logDocumentPreviewMetric,
+  resolveDocumentPreviewKind,
+  startBrowserDownload
+} from '../../features/documents/documentPreview';
 
 const DOCUMENT_CATALOG = [
   { type: 6, key: 'cin_front', label: 'CIN Front', hint: 'Recto CIN', required: true },
@@ -148,24 +155,6 @@ function formatFileSize(bytes) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`;
   return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function extractFileName(contentDisposition, fallback) {
-  if (!contentDisposition) return fallback;
-  const match = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(contentDisposition);
-  if (!match?.[1]) return fallback;
-  return decodeURIComponent(match[1].replace(/"/g, '').trim());
-}
-
-function downloadBlob(blob, fileName) {
-  const url = window.URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = url;
-  anchor.download = fileName;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.URL.revokeObjectURL(url);
 }
 
 function getInitials(name) {
@@ -377,12 +366,7 @@ function FournisseurCarteGrisePage() {
   const fileInputRef = useRef(null);
 
   const closePreview = useCallback(() => {
-    setPreview((prev) => {
-      if (prev?.url?.startsWith('blob:')) {
-        URL.revokeObjectURL(prev.url);
-      }
-      return null;
-    });
+    setPreview(null);
   }, []);
 
   const closeDetailsModal = useCallback(() => {
@@ -439,12 +423,6 @@ function FournisseurCarteGrisePage() {
       closeDetailsModal();
     }
   }, [closeDetailsModal, detailsModal.open, openDossier]);
-
-  useEffect(() => () => {
-    if (preview?.url?.startsWith('blob:')) {
-      URL.revokeObjectURL(preview.url);
-    }
-  }, [preview?.url]);
 
   useEffect(() => {
     setIssueDraft(openDossier?.documentIssueMessage || '');
@@ -603,19 +581,35 @@ function FournisseurCarteGrisePage() {
     revendeurs: new Set(dossiers.map((d) => d.revendeurKey)).size
   }), [dossiers]);
 
-  const fetchDocumentBlob = async (invoiceId, doc) => {
-    const response = await api.get(`/Invoices/fournisseur/carte-grise/${invoiceId}/documents/${doc.documentId}/download`, {
-      responseType: 'blob'
-    });
-    return response.data;
+  const resolveDocumentAccessUrl = async (invoiceId, doc) => {
+    const fallbackUrl = buildApiUrl(`/Invoices/fournisseur/carte-grise/${invoiceId}/documents/${doc.documentId}/inline`);
+
+    try {
+      const { data: accessResponse } = await api.get(
+        `/Invoices/fournisseur/carte-grise/${invoiceId}/documents/${doc.documentId}/sas-url`,
+        { timeout: 10000 }
+      );
+
+      if (accessResponse.success && accessResponse.data?.url) {
+        return accessResponse.data.url;
+      }
+    } catch (accessError) {
+      logDocumentPreviewMetric('fournisseur-access-url-fallback-inline', {
+        invoiceId,
+        documentId: doc.documentId,
+        reason: accessError?.message || 'fallback'
+      });
+    }
+
+    return fallbackUrl;
   };
 
   const handleDownload = async (dossier, doc) => {
     const key = `download-${dossier.invoiceId}-${doc.documentId}`;
     try {
       setActiveAction(key);
-      const blob = await fetchDocumentBlob(dossier.invoiceId, doc);
-      downloadBlob(blob, doc.fileName || `${doc.label}.pdf`);
+      startBrowserDownload(buildApiUrl(`/Invoices/fournisseur/carte-grise/${dossier.invoiceId}/documents/${doc.documentId}/download`));
+      toast.success('Telechargement lance.');
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Impossible de telecharger ce document.'));
     } finally {
@@ -628,13 +622,8 @@ function FournisseurCarteGrisePage() {
     const key = `download-all-${dossier.invoiceId}`;
     try {
       setActiveAction(key);
-      const response = await api.get(`/Invoices/fournisseur/carte-grise/${dossier.invoiceId}/documents/download-all`, {
-        responseType: 'blob'
-      });
-      const fallbackName = `dossier-carte-grise-${dossier.invoiceNumber || dossier.invoiceId}.zip`;
-      const fileName = extractFileName(response.headers?.['content-disposition'], fallbackName);
-      downloadBlob(response.data, fileName);
-      toast.success('Tous les documents ont ete telecharges.');
+      startBrowserDownload(buildApiUrl(`/Invoices/fournisseur/carte-grise/${dossier.invoiceId}/documents/download-all`));
+      toast.success('Telechargement de l archive lance.');
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Impossible de telecharger tous les documents.'));
     } finally {
@@ -644,24 +633,99 @@ function FournisseurCarteGrisePage() {
 
   const handlePreview = async (dossier, doc) => {
     const key = `preview-${dossier.invoiceId}-${doc.documentId}`;
+    const title = doc.fileName || doc.label;
+    const kind = resolveDocumentPreviewKind(doc.contentType, title);
+    const startedAt = performance.now();
+
     try {
       setActiveAction(key);
-      const blob = await fetchDocumentBlob(dossier.invoiceId, doc);
-      const url = window.URL.createObjectURL(blob);
-      const type = blob.type || doc.contentType || '';
       closePreview();
       setPreview({
+        url: '',
+        kind,
+        fileName: title,
+        dossierId: dossier.id,
+        loading: true,
+        error: '',
+        startedAt
+      });
+
+      if (kind === 'other') {
+        setPreview({
+          url: '',
+          kind,
+          fileName: title,
+          dossierId: dossier.id,
+          loading: false,
+          error: '',
+          startedAt
+        });
+        return;
+      }
+
+      const url = await resolveDocumentAccessUrl(dossier.invoiceId, doc);
+      logDocumentPreviewMetric('fournisseur-access-url-prepared', {
+        invoiceId: dossier.invoiceId,
+        documentId: doc.documentId,
+        sizeBytes: doc.sizeBytes,
+        kind,
+        accessMs: Math.round(performance.now() - startedAt)
+      });
+
+      setPreview({
         url,
-        kind: type.includes('pdf') ? 'pdf' : type.startsWith('image/') ? 'image' : 'other',
-        fileName: doc.fileName || doc.label,
-        dossierId: dossier.id
+        kind,
+        fileName: title,
+        dossierId: dossier.id,
+        loading: true,
+        error: '',
+        startedAt
       });
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Impossible d ouvrir ce document.'));
+      setPreview({
+        url: '',
+        kind,
+        fileName: title,
+        dossierId: dossier.id,
+        loading: false,
+        error: getApiErrorMessage(error, 'Impossible d ouvrir ce document.'),
+        startedAt
+      });
     } finally {
       setActiveAction('');
     }
   };
+
+  const markPreviewReady = useCallback(() => {
+    setPreview((prev) => {
+      if (!prev?.loading) {
+        return prev;
+      }
+
+      logDocumentPreviewMetric('fournisseur-preview-visible', {
+        fileName: prev.fileName,
+        kind: prev.kind,
+        visibleMs: Math.round(performance.now() - (prev.startedAt || performance.now()))
+      });
+
+      return {
+        ...prev,
+        loading: false
+      };
+    });
+  }, []);
+
+  const handlePreviewAssetError = useCallback(() => {
+    setPreview((prev) => (
+      prev
+        ? {
+          ...prev,
+          loading: false,
+          error: 'Apercu indisponible. Reessayez dans quelques instants.'
+        }
+        : prev
+    ));
+  }, []);
 
   const startUpload = (dossier, doc) => {
     setUploadTarget({ invoiceId: dossier.invoiceId, docType: doc.type, docLabel: doc.label });
@@ -1553,24 +1617,16 @@ function FournisseurCarteGrisePage() {
         </div>
       )}
 
-      {preview && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-[2px]" onClick={closePreview}>
-          <div className="w-full max-w-3xl rounded-2xl border border-slate-200 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-              <div>
-                <p className="text-sm font-bold text-slate-900">{preview.fileName}</p>
-                <p className="text-xs text-slate-500">{preview.dossierId}</p>
-              </div>
-              <button onClick={closePreview} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">Fermer</button>
-            </div>
-            <div className="max-h-[74vh] overflow-auto p-4">
-              {preview.kind === 'image' && <img src={preview.url} alt={preview.fileName} className="mx-auto max-h-[66vh] rounded-lg border border-slate-200" loading="lazy" decoding="async" />}
-              {preview.kind === 'pdf' && <iframe title={preview.fileName} src={preview.url} className="h-[66vh] w-full rounded-lg border border-slate-200" />}
-              {preview.kind === 'other' && <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 sm:p-6 text-center text-sm text-slate-700">Apercu non supporte pour ce format.</div>}
-            </div>
-          </div>
-        </div>
-      )}
+      <DocumentPreviewModal
+        preview={preview}
+        onClose={closePreview}
+        onReady={markPreviewReady}
+        onAssetError={handlePreviewAssetError}
+        closeLabel="Fermer"
+        loadingLabel="Chargement du document..."
+        loadingHint="La fenetre s'ouvre immediatement puis le document se charge en streaming."
+        unsupportedLabel="Apercu non supporte pour ce format."
+      />
     </div>
   );
 }

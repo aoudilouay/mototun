@@ -149,6 +149,7 @@ public class InvoiceDto
     public bool IsFactureUploaded { get; set; }
     public bool IsJustificatifUploaded { get; set; }
     public bool IsCarteGriseUploaded { get; set; }
+    public int DocumentCount { get; set; }
 
     public List<SoldMotorcycleDto> SoldMotorcycles { get; set; } = new();
     public List<InvoiceDocumentDto> Documents { get; set; } = new();

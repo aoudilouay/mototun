@@ -22,6 +22,7 @@ using System.Net.Mail;
 using System.Text;
 using System.Text.Json;
 using System.IO.Compression;
+using System.Diagnostics;
 
 namespace mototun.API.Controllers;
 
@@ -35,24 +36,6 @@ public class UpdateInvoiceSettingsFormRequest
     public IFormFile? LogoFile { get; set; }
 
     public IFormFile? SignatureFile { get; set; }
-}
-
-/// <summary>
-/// Response DTO for document SAS URL (Shared Access Signature).
-/// Only returned after successful authorization check.
-/// </summary>
-public class DocumentSasUrlResponse
-{
-    /// <summary>
-    /// Azure Blob Storage SAS URL for direct document access.
-    /// Valid for ExpiresIn seconds.
-    /// </summary>
-    public required string Url { get; set; }
-
-    /// <summary>
-    /// SAS URL expiry time in seconds (typically 600 = 10 minutes).
-    /// </summary>
-    public int ExpiresIn { get; set; }
 }
 
 [Authorize]
@@ -140,7 +123,8 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ActionResult<ApiResponse<List<InvoiceDto>>>> GetInvoices()
+    [HttpGet]
+    public async Task<ActionResult<ApiResponse<List<InvoiceDto>>>> GetInvoices([FromQuery] int page = 1, [FromQuery] int pageSize = 20)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
@@ -153,26 +137,44 @@ public class InvoicesController : ControllerBase
             return Forbid();
         }
 
+        // Pagination: skip * pageSize
+        var skip = (page - 1) * pageSize;
+
+        // Optimized query: only load necessary data for list view
         var invoices = await _context.Invoices
             .AsNoTracking()
-            .AsSplitQuery()
             .Where(i => i.RevendeurId == revendeurId.Value)
             .Include(i => i.Client)
-            .Include(i => i.SoldMotorcycles)
-            .Include(i => i.ClientPortalDocuments)
-            .Include(i => i.TimelineEvents)
             .Include(i => i.AssignedFournisseur)
                 .ThenInclude(f => f!.User)
             .OrderByDescending(i => i.CreatedAt)
+            .Skip(skip)
+            .Take(pageSize)
             .ToListAsync();
 
-        var result = invoices.Select(MapInvoiceDto).ToList();
+        // Load documents count only (minimal data)
+        var invoiceIds = invoices.Select(i => i.Id).ToList();
+        var documentCounts = await _context.ClientPortalDocuments
+            .AsNoTracking()
+            .Where(d => invoiceIds.Contains(d.InvoiceId))
+            .GroupBy(d => d.InvoiceId)
+            .Select(g => new { InvoiceId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.InvoiceId, x => x.Count);
+
+        // Enrich invoices with document info (without loading full documents)
+        var result = invoices.Select(i =>
+        {
+            var dto = MapInvoiceDto(i);
+            dto.DocumentCount = documentCounts.TryGetValue(i.Id, out var count) ? count : 0;
+            return dto;
+        }).ToList();
 
         return Ok(new ApiResponse<List<InvoiceDto>>
         {
             Success = true,
             Message = "Invoices loaded",
-            Data = result
+            Data = result,
+            Meta = new { Page = page, PageSize = pageSize, Total = await _context.Invoices.CountAsync(i => i.RevendeurId == revendeurId.Value) }
         });
     }
 
@@ -190,6 +192,7 @@ public class InvoicesController : ControllerBase
             return Forbid();
         }
 
+        // Full load only for specific invoice view
         var invoice = await _context.Invoices
             .AsNoTracking()
             .AsSplitQuery()
@@ -1979,6 +1982,7 @@ public class InvoicesController : ControllerBase
     [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadBytes)]
     public async Task<ActionResult<ApiResponse<InvoiceDocumentDto>>> UploadDocument(int id, [FromForm] UploadInvoiceDocumentForm form)
     {
+        var uploadStopwatch = Stopwatch.StartNew();
         if (!TryGetCurrentUserId(out var currentUserId))
         {
             return Unauthorized();
@@ -2116,6 +2120,16 @@ public class InvoicesController : ControllerBase
 
         await DeleteStoredFilesAsync(mutation.ReplacedRelativePath, mutation.DuplicateRelativePaths, HttpContext.RequestAborted);
         TryDeleteTemporaryFile(tempFilePath);
+        uploadStopwatch.Stop();
+
+        _logger.LogInformation(
+            "Revendeur document upload stored for invoice {InvoiceId}. DocumentType={DocumentType}. SizeBytes={SizeBytes}. ContentType={ContentType}. OptimizationApplied={OptimizationApplied}. TotalMs={TotalMs}",
+            invoice.Id,
+            documentType,
+            form.File.Length,
+            storedFile.ContentType,
+            false,
+            uploadStopwatch.ElapsedMilliseconds);
 
         return Ok(new ApiResponse<InvoiceDocumentDto>
         {
@@ -2183,15 +2197,11 @@ public class InvoicesController : ControllerBase
             });
         }
 
-        // Add caching headers for browser cache (1 week)
-        Response.Headers.CacheControl = "public, max-age=604800, must-revalidate";
-        Response.Headers.ETag = $"\"{document.Id}-{document.UpdatedAt:O}\"";
-
-        return File(stream, document.ContentType, document.OriginalFileName, enableRangeProcessing: true);
+        return CreateAttachmentDocumentResponse(stream, document);
     }
 
-    [HttpGet("{id:int}/documents/{documentId:int}/sas-url")]
-    public async Task<ActionResult<ApiResponse<DocumentSasUrlResponse>>> GetDocumentSasUrl(int id, int documentId)
+    [HttpGet("{id:int}/documents/{documentId:int}/inline")]
+    public async Task<IActionResult> PreviewDocumentInline(int id, int documentId)
     {
         if (!TryGetCurrentUserId(out var currentUserId))
         {
@@ -2212,7 +2222,7 @@ public class InvoicesController : ControllerBase
 
         if (invoice is null)
         {
-            return NotFound(new ApiResponse<DocumentSasUrlResponse>
+            return NotFound(new ApiResponse<object>
             {
                 Success = false,
                 Message = "Invoice not found"
@@ -2222,33 +2232,104 @@ public class InvoicesController : ControllerBase
         var document = invoice.ClientPortalDocuments.FirstOrDefault(d => d.Id == documentId);
         if (document is null)
         {
-            return NotFound(new ApiResponse<DocumentSasUrlResponse>
+            return NotFound(new ApiResponse<object>
             {
                 Success = false,
                 Message = "Document not found"
             });
         }
 
-        // Generate SAS URL (10-minute expiry)
-        var sasUri = await _fileStorage.GenerateSasUriAsync(document.RelativePath, TimeSpan.FromMinutes(10));
-        if (sasUri is null)
+        var stream = await _fileStorage.OpenReadAsync(document.RelativePath, HttpContext.RequestAborted);
+        if (stream is null)
         {
-            _logger.LogWarning("Failed to generate SAS URL for document {DocumentId} in invoice {InvoiceId}", documentId, id);
-            return NotFound(new ApiResponse<DocumentSasUrlResponse>
+            return NotFound(new ApiResponse<object>
             {
                 Success = false,
                 Message = "File not found"
             });
         }
 
-        _logger.LogInformation("Generated SAS URL for document {DocumentId} for user {UserId}", documentId, currentUserId);
+        return CreateInlineDocumentResponse(stream, document);
+    }
 
-        return Ok(new ApiResponse<DocumentSasUrlResponse>
+    [HttpGet("{id:int}/documents/{documentId:int}/sas-url")]
+    public async Task<ActionResult<ApiResponse<DocumentAccessUrlDto>>> GetDocumentSasUrl(int id, int documentId)
+    {
+        var authorizationStopwatch = Stopwatch.StartNew();
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var revendeurId = await GetCurrentRevendeurIdAsync(currentUserId);
+        if (!revendeurId.HasValue)
+        {
+            return Forbid();
+        }
+
+        var invoice = await _context.Invoices
+            .AsNoTracking()
+            .Where(i => i.Id == id && i.RevendeurId == revendeurId.Value)
+            .Include(i => i.ClientPortalDocuments)
+            .FirstOrDefaultAsync();
+        authorizationStopwatch.Stop();
+
+        if (invoice is null)
+        {
+            return NotFound(new ApiResponse<DocumentAccessUrlDto>
+            {
+                Success = false,
+                Message = "Invoice not found"
+            });
+        }
+
+        var document = invoice.ClientPortalDocuments.FirstOrDefault(d => d.Id == documentId);
+        if (document is null)
+        {
+            return NotFound(new ApiResponse<DocumentAccessUrlDto>
+            {
+                Success = false,
+                Message = "Document not found"
+            });
+        }
+
+        var accessStopwatch = Stopwatch.StartNew();
+        var inlineUrl = Url.ActionLink(
+            nameof(PreviewDocumentInline),
+            values: new { id, documentId });
+        var sasUri = await _fileStorage.GenerateSasUriAsync(
+            document.RelativePath,
+            TimeSpan.FromMinutes(10),
+            HttpContext.RequestAborted);
+        accessStopwatch.Stop();
+
+        var resolvedUrl = sasUri?.ToString() ?? inlineUrl;
+        if (string.IsNullOrWhiteSpace(resolvedUrl))
+        {
+            _logger.LogWarning("Failed to build preview access URL for revendeur document {DocumentId} in invoice {InvoiceId}", documentId, id);
+            return NotFound(new ApiResponse<DocumentAccessUrlDto>
+            {
+                Success = false,
+                Message = "File not found"
+            });
+        }
+
+        _logger.LogInformation(
+            "Prepared revendeur document access URL for invoice {InvoiceId} document {DocumentId}. DeliveryMode={DeliveryMode}. AuthMs={AuthMs}. AccessMs={AccessMs}. SizeBytes={SizeBytes}. ContentType={ContentType}",
+            id,
+            documentId,
+            sasUri is null ? "inline-proxy" : "blob-sas",
+            authorizationStopwatch.ElapsedMilliseconds,
+            accessStopwatch.ElapsedMilliseconds,
+            document.SizeBytes,
+            document.ContentType);
+
+        return Ok(new ApiResponse<DocumentAccessUrlDto>
         {
             Success = true,
-            Data = new DocumentSasUrlResponse
+            Data = new DocumentAccessUrlDto
             {
-                Url = sasUri.ToString(),
+                Url = resolvedUrl,
                 ExpiresIn = 600 // 10 minutes in seconds
             }
         });
@@ -2258,6 +2339,7 @@ public class InvoicesController : ControllerBase
     [RequestFormLimits(MultipartBodyLengthLimit = MaxUploadBytes)]
     public async Task<ActionResult<ApiResponse<InvoiceDocumentDto>>> UploadDocumentAsFournisseur(int id, [FromForm] UploadInvoiceDocumentForm form)
     {
+        var uploadStopwatch = Stopwatch.StartNew();
         if (!TryGetCurrentUserId(out var currentUserId))
         {
             return Unauthorized();
@@ -2394,6 +2476,16 @@ public class InvoicesController : ControllerBase
 
         await DeleteStoredFilesAsync(mutation.ReplacedRelativePath, mutation.DuplicateRelativePaths, HttpContext.RequestAborted);
         TryDeleteTemporaryFile(tempFilePath);
+        uploadStopwatch.Stop();
+
+        _logger.LogInformation(
+            "Fournisseur document upload stored for invoice {InvoiceId}. DocumentType={DocumentType}. SizeBytes={SizeBytes}. ContentType={ContentType}. OptimizationApplied={OptimizationApplied}. TotalMs={TotalMs}",
+            invoice.Id,
+            documentType,
+            form.File.Length,
+            storedFile.ContentType,
+            false,
+            uploadStopwatch.ElapsedMilliseconds);
 
         return Ok(new ApiResponse<InvoiceDocumentDto>
         {
@@ -2462,7 +2554,144 @@ public class InvoicesController : ControllerBase
             });
         }
 
-        return File(stream, document.ContentType, document.OriginalFileName);
+        return CreateAttachmentDocumentResponse(stream, document);
+    }
+
+    [HttpGet("fournisseur/carte-grise/{id:int}/documents/{documentId:int}/inline")]
+    public async Task<IActionResult> PreviewDocumentInlineAsFournisseur(int id, int documentId)
+    {
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var fournisseurId = await GetCurrentFournisseurIdAsync(currentUserId);
+        if (!fournisseurId.HasValue)
+        {
+            return Forbid();
+        }
+
+        var invoice = await _context.Invoices
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Where(i => i.Id == id && i.AssignedFournisseurId == fournisseurId.Value)
+            .Include(i => i.ClientPortalDocuments)
+            .FirstOrDefaultAsync();
+
+        if (invoice is null)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Invoice not found"
+            });
+        }
+
+        var document = invoice.ClientPortalDocuments.FirstOrDefault(d => d.Id == documentId);
+        if (document is null)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Document not found"
+            });
+        }
+
+        var stream = await _fileStorage.OpenReadAsync(document.RelativePath, HttpContext.RequestAborted);
+        if (stream is null)
+        {
+            return NotFound(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "File not found"
+            });
+        }
+
+        return CreateInlineDocumentResponse(stream, document);
+    }
+
+    [HttpGet("fournisseur/carte-grise/{id:int}/documents/{documentId:int}/sas-url")]
+    public async Task<ActionResult<ApiResponse<DocumentAccessUrlDto>>> GetDocumentSasUrlAsFournisseur(int id, int documentId)
+    {
+        var authorizationStopwatch = Stopwatch.StartNew();
+        if (!TryGetCurrentUserId(out var currentUserId))
+        {
+            return Unauthorized();
+        }
+
+        var fournisseurId = await GetCurrentFournisseurIdAsync(currentUserId);
+        if (!fournisseurId.HasValue)
+        {
+            return Forbid();
+        }
+
+        var invoice = await _context.Invoices
+            .AsNoTracking()
+            .AsSplitQuery()
+            .Where(i => i.Id == id && i.AssignedFournisseurId == fournisseurId.Value)
+            .Include(i => i.ClientPortalDocuments)
+            .FirstOrDefaultAsync();
+        authorizationStopwatch.Stop();
+
+        if (invoice is null)
+        {
+            return NotFound(new ApiResponse<DocumentAccessUrlDto>
+            {
+                Success = false,
+                Message = "Invoice not found"
+            });
+        }
+
+        var document = invoice.ClientPortalDocuments.FirstOrDefault(d => d.Id == documentId);
+        if (document is null)
+        {
+            return NotFound(new ApiResponse<DocumentAccessUrlDto>
+            {
+                Success = false,
+                Message = "Document not found"
+            });
+        }
+
+        var accessStopwatch = Stopwatch.StartNew();
+        var inlineUrl = Url.ActionLink(
+            nameof(PreviewDocumentInlineAsFournisseur),
+            values: new { id, documentId });
+        var sasUri = await _fileStorage.GenerateSasUriAsync(
+            document.RelativePath,
+            TimeSpan.FromMinutes(10),
+            HttpContext.RequestAborted);
+        accessStopwatch.Stop();
+
+        var resolvedUrl = sasUri?.ToString() ?? inlineUrl;
+        if (string.IsNullOrWhiteSpace(resolvedUrl))
+        {
+            _logger.LogWarning("Failed to build preview access URL for fournisseur document {DocumentId} in invoice {InvoiceId}", documentId, id);
+            return NotFound(new ApiResponse<DocumentAccessUrlDto>
+            {
+                Success = false,
+                Message = "File not found"
+            });
+        }
+
+        _logger.LogInformation(
+            "Prepared fournisseur document access URL for invoice {InvoiceId} document {DocumentId}. DeliveryMode={DeliveryMode}. AuthMs={AuthMs}. AccessMs={AccessMs}. SizeBytes={SizeBytes}. ContentType={ContentType}",
+            id,
+            documentId,
+            sasUri is null ? "inline-proxy" : "blob-sas",
+            authorizationStopwatch.ElapsedMilliseconds,
+            accessStopwatch.ElapsedMilliseconds,
+            document.SizeBytes,
+            document.ContentType);
+
+        return Ok(new ApiResponse<DocumentAccessUrlDto>
+        {
+            Success = true,
+            Data = new DocumentAccessUrlDto
+            {
+                Url = resolvedUrl,
+                ExpiresIn = 600
+            }
+        });
     }
 
     [HttpGet("fournisseur/carte-grise/{id:int}/documents/download-all")]
@@ -2554,6 +2783,48 @@ public class InvoicesController : ControllerBase
         zipStream.Position = 0;
         var archiveFileName = $"dossier-carte-grise-{SanitizeFileNameToken(invoice.InvoiceNumber, $"invoice-{invoice.Id}")}.zip";
         return File(zipStream, "application/zip", archiveFileName);
+    }
+
+    private IActionResult CreateAttachmentDocumentResponse(Stream stream, ClientPortalDocument document)
+    {
+        ApplyPrivateDocumentCacheHeaders(document.Id, document.UpdatedAt);
+        return new FileStreamResult(stream, ResolveContentType(document.ContentType))
+        {
+            FileDownloadName = document.OriginalFileName,
+            EnableRangeProcessing = true
+        };
+    }
+
+    private IActionResult CreateInlineDocumentResponse(Stream stream, ClientPortalDocument document)
+    {
+        ApplyPrivateDocumentCacheHeaders(document.Id, document.UpdatedAt);
+        Response.Headers["Content-Disposition"] = BuildInlineContentDisposition(document.OriginalFileName);
+
+        return new FileStreamResult(stream, ResolveContentType(document.ContentType))
+        {
+            EnableRangeProcessing = true
+        };
+    }
+
+    private void ApplyPrivateDocumentCacheHeaders(int documentId, DateTime updatedAt)
+    {
+        Response.Headers.CacheControl = "private, max-age=600, must-revalidate";
+        Response.Headers.ETag = $"\"doc-{documentId}-{updatedAt.Ticks}\"";
+    }
+
+    private static string ResolveContentType(string? contentType)
+    {
+        return string.IsNullOrWhiteSpace(contentType)
+            ? "application/octet-stream"
+            : contentType;
+    }
+
+    private static string BuildInlineContentDisposition(string? fileName)
+    {
+        var safeFileName = string.IsNullOrWhiteSpace(fileName)
+            ? $"document-{Guid.NewGuid():N}"
+            : fileName;
+        return $"inline; filename*=UTF-8''{Uri.EscapeDataString(safeFileName)}";
     }
 
     private async Task<int?> GetCurrentRevendeurIdAsync(int currentUserId)

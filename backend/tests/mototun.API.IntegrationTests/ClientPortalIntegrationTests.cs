@@ -92,6 +92,33 @@ public class ClientPortalIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, downloadResponse.StatusCode);
         Assert.Equal("image/png", downloadResponse.Content.Headers.ContentType?.MediaType);
+
+        var accessResponse = await client.GetAsync(
+            $"/api/client-portal/{TestWebApplicationFactory.InvoiceId}/documents/{uploadedDocumentId}/access-url?code={ValidPortalCode}");
+
+        Assert.Equal(HttpStatusCode.OK, accessResponse.StatusCode);
+        using (var accessPayload = await accessResponse.ReadJsonAsync())
+        {
+            var accessUrl = accessPayload.RootElement.GetProperty("data").GetProperty("url").GetString();
+            Assert.NotNull(accessUrl);
+            Assert.Contains($"/api/client-portal/{TestWebApplicationFactory.InvoiceId}/documents/{uploadedDocumentId}/inline?code=", accessUrl, StringComparison.OrdinalIgnoreCase);
+
+            var inlinePath = new Uri(accessUrl!, UriKind.Absolute).PathAndQuery;
+            var inlineResponse = await client.GetAsync(inlinePath);
+            Assert.Equal(HttpStatusCode.OK, inlineResponse.StatusCode);
+            Assert.Equal("image/png", inlineResponse.Content.Headers.ContentType?.MediaType);
+        }
+    }
+
+    [Fact]
+    public async Task InvoicePdfInline_WithValidCode_IsAccessible()
+    {
+        await using var factory = new TestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var pdfResponse = await client.GetAsync($"/api/client-portal/{TestWebApplicationFactory.InvoiceId}/invoice-pdf/inline?code={ValidPortalCode}");
+        Assert.Equal(HttpStatusCode.OK, pdfResponse.StatusCode);
+        Assert.Equal("application/pdf", pdfResponse.Content.Headers.ContentType?.MediaType);
     }
 
     [Fact]

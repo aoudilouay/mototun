@@ -1,4 +1,5 @@
 import api from '../api/axios';
+import { getApiBaseUrl } from '../features/documents/documentPreview';
 
 function getApiErrorMessage(error, fallbackMessage) {
   const apiMessage = error?.response?.data?.message || error?.response?.data?.Message;
@@ -14,11 +15,6 @@ function getApiErrorMessage(error, fallbackMessage) {
   if (detail) return String(detail);
 
   return fallbackMessage;
-}
-
-function getBaseUrl() {
-  const base = api?.defaults?.baseURL || '';
-  return base.endsWith('/') ? base.slice(0, -1) : base;
 }
 
 const clientPortalService = {
@@ -79,13 +75,41 @@ const clientPortalService = {
   },
 
   getDownloadUrl: (invoiceId, documentId, code) => {
-    const baseUrl = getBaseUrl();
+    const baseUrl = getApiBaseUrl();
     return `${baseUrl}/client-portal/${invoiceId}/documents/${documentId}/download?code=${encodeURIComponent(code)}`;
   },
 
+  getInlinePreviewUrl: (invoiceId, documentId, code) => {
+    const baseUrl = getApiBaseUrl();
+    return `${baseUrl}/client-portal/${invoiceId}/documents/${documentId}/inline?code=${encodeURIComponent(code)}`;
+  },
+
+  getDocumentAccessUrl: async (invoiceId, documentId, code) => {
+    try {
+      const response = await api.get(`/client-portal/${invoiceId}/documents/${documentId}/access-url`, {
+        params: { code },
+        skipAuthRedirect: true,
+        timeout: 10000
+      });
+
+      if (response?.data?.success && response.data.data?.url) {
+        return response.data.data;
+      }
+
+      throw new Error(response?.data?.message || 'Acces document indisponible');
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, 'Impossible de preparer le document'));
+    }
+  },
+
   getInvoicePdfUrl: (invoiceId, code) => {
-    const baseUrl = getBaseUrl();
+    const baseUrl = getApiBaseUrl();
     return `${baseUrl}/client-portal/${invoiceId}/invoice-pdf?code=${encodeURIComponent(code)}`;
+  },
+
+  getInvoicePdfInlineUrl: (invoiceId, code) => {
+    const baseUrl = getApiBaseUrl();
+    return `${baseUrl}/client-portal/${invoiceId}/invoice-pdf/inline?code=${encodeURIComponent(code)}`;
   }
 };
 
