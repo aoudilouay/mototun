@@ -5,10 +5,13 @@ import './index.css'
 import App from './App.jsx'
 import { queryClient } from './lib/queryClient'
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  </StrictMode>,
-)
+const root = document.getElementById('root');
+if (root) {
+  createRoot(root).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </StrictMode>,
+  )
+}

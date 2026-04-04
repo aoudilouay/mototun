@@ -1,7 +1,6 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
-import { Analytics } from '@vercel/analytics/react';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AppPageSkeleton, AppShellSkeleton, PublicRouteSkeleton } from './components/loading/RouteSkeletons';
 import { AuthProvider } from './context/AuthContext';
@@ -16,6 +15,9 @@ import {
   loadRevendeurDashboardPage,
   loadRevendeursPage,
 } from './lib/routePreloaders';
+
+// Lazy load Analytics for better initial paint
+const Analytics = lazy(() => import('@vercel/analytics/react').then(mod => ({ default: mod.Analytics })));
 
 const LandingPage = lazy(() => import('./Pages/Landingpage'));
 const LoginPage = lazy(() => import('./Pages/LoginPage'));
@@ -145,6 +147,26 @@ function ComingSoonPage({ label }) {
   return <div className="p-8 text-2xl font-bold">{label}</div>;
 }
 
+function AnalyticsWrapper() {
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    // Defer Analytics initialization until after route is rendered
+    const timer = requestIdleCallback(() => {
+      setIsReady(true);
+    }, { timeout: 2000 });
+
+    return () => {
+      if (typeof cancelIdleCallback === 'function') {
+        cancelIdleCallback(timer);
+      }
+    };
+  }, []);
+
+  if (!isReady) return null;
+  return <Suspense fallback={null}><Analytics /></Suspense>;
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -152,7 +174,7 @@ function App() {
         <Router>
           <AppRoutes />
           <Toaster richColors position="bottom-right" />
-          <Analytics />
+          <AnalyticsWrapper />
         </Router>
       </I18nProvider>
     </AuthProvider>

@@ -31,6 +31,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     build: {
+      target: 'esnext',
       chunkSizeWarningLimit: 900,
       rollupOptions: {
         output: {
@@ -47,6 +48,12 @@ export default defineConfig(({ mode }) => {
               id.includes("node_modules/react-router-dom")
             ) {
               return "react-vendor";
+            }
+            if (id.includes("node_modules/framer-motion")) {
+              return "motion";
+            }
+            if (id.includes("node_modules/@radix-ui")) {
+              return "radix";
             }
             return undefined;
           },
