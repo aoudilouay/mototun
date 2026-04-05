@@ -1,10 +1,12 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import AppErrorBoundary from './components/AppErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AppPageSkeleton, AppShellSkeleton, PublicRouteSkeleton } from './components/loading/RouteSkeletons';
 import { AuthProvider } from './context/AuthContext';
 import { I18nProvider, useI18n } from './context/I18nContext';
+import { scheduleIdleTask } from './lib/browserScheduling';
 import {
   loadCarteGrisePage,
   loadClientsPage,
@@ -152,14 +154,12 @@ function AnalyticsWrapper() {
 
   useEffect(() => {
     // Defer Analytics initialization until after route is rendered
-    const timer = requestIdleCallback(() => {
+    const cancelIdleTask = scheduleIdleTask(() => {
       setIsReady(true);
-    }, { timeout: 2000 });
+    }, { timeout: 2000, fallbackDelay: 250 });
 
     return () => {
-      if (typeof cancelIdleCallback === 'function') {
-        cancelIdleCallback(timer);
-      }
+      cancelIdleTask();
     };
   }, []);
 
@@ -171,11 +171,13 @@ function App() {
   return (
     <AuthProvider>
       <I18nProvider>
-        <Router>
-          <AppRoutes />
-          <Toaster richColors position="bottom-right" />
-          <AnalyticsWrapper />
-        </Router>
+        <AppErrorBoundary>
+          <Router>
+            <AppRoutes />
+            <Toaster richColors position="bottom-right" />
+            <AnalyticsWrapper />
+          </Router>
+        </AppErrorBoundary>
       </I18nProvider>
     </AuthProvider>
   );

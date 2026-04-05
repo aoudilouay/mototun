@@ -1,4 +1,4 @@
-import axios from '../api/axios';
+import axios, { AUTH_BOOTSTRAP_TIMEOUT_MS } from '../api/axios';
 
 const AUTH_USER_STORAGE_KEY = 'mototun.auth.user';
 const LEGACY_USER_STORAGE_KEY = 'user';
@@ -200,7 +200,10 @@ const authService = {
   // Refresh session from HttpOnly auth cookie
   fetchCurrentUser: async () => {
     try {
-      const response = await axios.get('/Auth/me', { skipAuthRedirect: true });
+      const response = await axios.get('/Auth/me', {
+        skipAuthRedirect: true,
+        timeout: AUTH_BOOTSTRAP_TIMEOUT_MS
+      });
       if (response.data?.success && response.data?.data) {
         return persistSession(response.data.data);
       }

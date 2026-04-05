@@ -22,4 +22,4 @@ COPY --from=build /app/publish ./
 
 EXPOSE 10000
 
-CMD ["sh", "-c", "ASPNETCORE_URLS=http://+:${PORT:-10000} dotnet mototun.API.dll"]
+CMD ["sh", "-c", "ASPNETCORE_URLS=http://+:${PORT:-${WEBSITES_PORT:-10000}} dotnet mototun.API.dll"]
