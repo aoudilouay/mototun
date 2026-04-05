@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -133,17 +133,36 @@ function FournisseurLayout() {
     ? (isArabic ? 'lg:mr-20' : 'lg:ml-20')
     : (isArabic ? 'lg:mr-64' : 'lg:ml-64');
 
+  useEffect(() => {
+    if (!isMobileSidebarOpen) return undefined;
+
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousHtmlOverflow;
+    };
+  }, [isMobileSidebarOpen]);
+
   return (
     <div className="min-h-screen bg-[#f3f5fb] flex">
       <aside
-        className={`fixed top-0 z-40 h-screen w-[min(18rem,calc(100vw-1rem))] transform transition-all duration-300 ${sidebarDesktopWidth} ${isArabic ? 'right-0' : 'left-0'} ${isMobileSidebarOpen ? 'translate-x-0' : mobileSidebarHidden} lg:translate-x-0`}
+        role="dialog"
+        aria-modal={isMobileSidebarOpen ? 'true' : undefined}
+        aria-label="Fournisseur navigation"
+        className={`fixed top-0 z-40 h-[100dvh] w-[88vw] max-w-[22rem] transform transition-transform duration-300 ease-out lg:h-screen lg:max-w-none ${sidebarDesktopWidth} ${isArabic ? 'right-0' : 'left-0'} ${isMobileSidebarOpen ? 'translate-x-0' : mobileSidebarHidden} lg:translate-x-0`}
       >
-        <div className="m-3 flex h-[calc(100vh-1.5rem)] flex-col overflow-hidden rounded-[30px] border border-slate-200 bg-gradient-to-b from-white via-slate-50 to-slate-100 shadow-[0_24px_70px_rgba(15,23,42,0.14)]">
+        <div className="m-2.5 flex h-[calc(100dvh-1.25rem)] flex-col overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.18)] lg:m-3 lg:h-[calc(100vh-1.5rem)] lg:bg-gradient-to-b lg:from-white lg:via-slate-50 lg:to-slate-100">
           <div className={`border-b border-slate-200 ${isSidebarCollapsed ? 'px-2 py-3 lg:px-2' : 'px-4 py-4'}`}>
-            <div className="mb-2 flex justify-end lg:hidden">
+            <div className="relative mb-3 flex items-center justify-center lg:hidden">
+              <div className="h-1.5 w-12 rounded-full bg-slate-200" />
               <button
                 onClick={() => setIsMobileSidebarOpen(false)}
-                className="rounded-2xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition-colors hover:bg-slate-50"
+                className={`absolute ${isArabic ? 'left-0' : 'right-0'} rounded-2xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition-colors hover:bg-slate-50`}
                 title="close-sidebar"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -166,12 +185,17 @@ function FournisseurLayout() {
               </div>
             ) : (
               <>
-                <div className="flex items-center justify-between gap-2">
+                <div className="flex items-start justify-between gap-3">
                   <Link to="/" className="min-w-0">
-                    <p className="truncate text-xs font-semibold uppercase tracking-[0.2em] text-emerald-700/80">
+                    <p className="truncate text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600/90">
+                      Workspace fournisseur
+                    </p>
+                    <p className="mt-1 truncate text-lg font-black tracking-tight text-slate-950">
                       {user?.businessName || user?.fullName || 'Tunimoto'}
                     </p>
-                    <p className="truncate text-base font-bold text-slate-900">{t('nav.fournisseur')}</p>
+                    <p className="mt-1 hidden truncate text-xs text-slate-500 lg:block">
+                      Traitement des dossiers et coordination revendeurs
+                    </p>
                   </Link>
 
                   <button
@@ -185,8 +209,8 @@ function FournisseurLayout() {
                   </button>
                 </div>
 
-                <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
-                  <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-xs font-bold text-white">
+                <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-[0_12px_24px_rgba(15,23,42,0.05)]">
+                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-xs font-bold text-white shadow-sm">
                     {canRenderAvatarImage ? (
                       <img
                         src={userAvatarUrl}
@@ -201,15 +225,24 @@ function FournisseurLayout() {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-900">{user?.fullName || user?.businessName || t('nav.fournisseur')}</p>
-                    <p className="truncate text-xs text-slate-500">{user?.city || 'Tunisia'}</p>
+                    <p className="truncate text-[15px] font-semibold text-slate-900">{user?.fullName || user?.businessName || t('nav.fournisseur')}</p>
+                    <p className="truncate text-[13px] text-slate-500">{user?.city || 'Tunisia'}</p>
                   </div>
                 </div>
+
               </>
             )}
           </div>
 
-          <nav className={`flex-1 overflow-y-auto py-4 ${isSidebarCollapsed ? 'px-2' : 'px-3'}`}>
+          <nav className={`flex-1 overflow-y-auto py-4 ${isSidebarCollapsed ? 'px-2' : 'px-3 pb-6'}`}>
+            {!isSidebarCollapsed && (
+              <div className="mb-3 flex items-center gap-3 px-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  Navigation
+                </p>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
+            )}
             <div className="space-y-2">
               {menuItems.map((item) => {
                 const active = isActiveRoute(item.path);
@@ -221,12 +254,12 @@ function FournisseurLayout() {
                     onMouseEnter={() => prefetchRouteIntent(item.path)}
                     onFocus={() => prefetchRouteIntent(item.path)}
                     title={isSidebarCollapsed ? item.label : undefined}
-                    className={`group flex items-center rounded-2xl transition-all ${
-                      isSidebarCollapsed ? 'justify-center px-0 py-1.5' : 'gap-3 px-3 py-2.5'
+                    className={`group flex items-center rounded-2xl border transition-all ${
+                      isSidebarCollapsed ? 'justify-center px-0 py-1.5' : 'min-h-[56px] gap-3 px-3 py-3 lg:min-h-0 lg:py-2.5'
                     } ${
                       active
-                        ? 'bg-emerald-50 text-slate-900 shadow-[0_8px_20px_rgba(5,150,105,0.14)]'
-                        : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                        ? 'border-emerald-200/80 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 text-slate-900 shadow-[0_10px_24px_rgba(5,150,105,0.14)]'
+                        : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900 hover:shadow-sm'
                     }`}
                   >
                     <span
@@ -260,6 +293,14 @@ function FournisseurLayout() {
 
             <div className={`my-5 border-t border-slate-200 ${isSidebarCollapsed ? 'mx-2' : 'mx-1'}`} />
 
+            {!isSidebarCollapsed && (
+              <div className="mb-3 flex items-center gap-3 px-3">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+                  More
+                </p>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
+            )}
             <div className="space-y-2">
               {secondaryMenuItems.map((item) => {
                 const active = isActiveRoute(item.path);
@@ -271,12 +312,12 @@ function FournisseurLayout() {
                     onMouseEnter={() => prefetchRouteIntent(item.path)}
                     onFocus={() => prefetchRouteIntent(item.path)}
                     title={isSidebarCollapsed ? item.label : undefined}
-                    className={`group flex items-center rounded-2xl transition-all ${
-                      isSidebarCollapsed ? 'justify-center px-0 py-1.5' : 'gap-3 px-3 py-2.5'
+                    className={`group flex items-center rounded-2xl border transition-all ${
+                      isSidebarCollapsed ? 'justify-center px-0 py-1.5' : 'min-h-[56px] gap-3 px-3 py-3 lg:min-h-0 lg:py-2.5'
                     } ${
                       active
-                        ? 'bg-emerald-50 text-slate-900 shadow-[0_8px_20px_rgba(5,150,105,0.14)]'
-                        : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                        ? 'border-emerald-200/80 bg-gradient-to-r from-emerald-50 via-white to-emerald-50 text-slate-900 shadow-[0_10px_24px_rgba(5,150,105,0.14)]'
+                        : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900 hover:shadow-sm'
                     }`}
                   >
                     <span
@@ -295,11 +336,30 @@ function FournisseurLayout() {
             </div>
           </nav>
 
-          <div className={`border-t border-slate-200 pb-4 pt-3 ${isSidebarCollapsed ? 'px-2' : 'px-3'}`}>
+          <div className={`border-t border-slate-200 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3 ${isSidebarCollapsed ? 'px-2' : 'px-3'}`}>
+            {!isSidebarCollapsed && (
+              <Link
+                to="/fournisseur/support"
+                className="mb-3 hidden items-start gap-3 rounded-[24px] border border-slate-200 bg-white px-3 py-3 text-left shadow-[0_16px_28px_rgba(15,23,42,0.06)] transition-colors hover:bg-slate-50 lg:flex"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-100 text-emerald-700">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M9.1 9a3 3 0 0 1 5.8 1c0 1.9-2.9 2.3-2.9 4" />
+                    <path d="M12 17h.01" />
+                  </svg>
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-slate-900">Support fournisseur</span>
+                  <span className="mt-1 block text-xs leading-5 text-slate-500">Ouvrez un ticket ou suivez les reponses de l’equipe admin.</span>
+                </span>
+              </Link>
+            )}
+
             <button
               onClick={handleLogout}
-              className={`group flex w-full items-center rounded-2xl text-slate-600 transition-all hover:bg-rose-50 hover:text-rose-700 ${
-                isSidebarCollapsed ? 'justify-center px-0 py-1.5' : 'gap-3 px-3 py-2.5'
+              className={`group flex w-full items-center rounded-2xl border border-transparent text-slate-600 transition-all hover:border-rose-100 hover:bg-rose-50 hover:text-rose-700 ${
+                isSidebarCollapsed ? 'justify-center px-0 py-1.5' : 'min-h-[56px] gap-3 px-3 py-3 lg:min-h-0 lg:py-2.5'
               }`}
               title={isSidebarCollapsed ? t('common.logout') : undefined}
             >
@@ -325,7 +385,7 @@ function FournisseurLayout() {
                   if (isSidebarCollapsed) setIsSidebarCollapsed(false);
                   setIsMobileSidebarOpen(true);
                 }}
-                className="inline-flex shrink-0 rounded-xl border border-slate-200 bg-white p-2 text-slate-600 shadow-sm transition-colors hover:bg-slate-50 lg:hidden"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50 lg:hidden"
                 title="open-sidebar"
               >
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -348,7 +408,7 @@ function FournisseurLayout() {
             <div className={`flex w-full items-center justify-between gap-2 sm:ml-auto sm:w-auto sm:justify-end sm:gap-3 ${isArabic ? 'pr-0.5 sm:pr-1' : 'pl-0.5 sm:pl-1'}`}>
               <Link
                 to="/fournisseur/support"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100"
+                className="hidden h-9 w-9 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 transition-colors hover:bg-emerald-100 sm:inline-flex"
                 title="Support"
                 aria-label="Support"
               >
@@ -427,7 +487,7 @@ function FournisseurLayout() {
         <button
           type="button"
           aria-label="close sidebar overlay"
-          className="fixed inset-0 z-30 bg-slate-900/30 backdrop-blur-[1px] lg:hidden"
+          className="fixed inset-0 z-30 bg-slate-950/45 backdrop-blur-[2px] lg:hidden"
           onClick={() => setIsMobileSidebarOpen(false)}
         />
       )}
