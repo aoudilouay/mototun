@@ -177,11 +177,11 @@ function RevendeurLayout() {
   const userCity = String(user?.city || user?.profile?.city || '').trim();
   const canRenderAvatarImage = Boolean(userAvatarUrl) && failedAvatarUrl !== userAvatarUrl;
 
-  const sidebarDesktopWidth = isSidebarCollapsed ? 'lg:w-[5.5rem]' : 'lg:w-[24rem]';
+  const sidebarDesktopWidth = isSidebarCollapsed ? 'lg:w-[5.5rem]' : 'lg:w-[20rem]';
   const mobileSidebarHidden = isArabic ? 'translate-x-full' : '-translate-x-full';
   const contentOffset = isSidebarCollapsed
     ? (isArabic ? 'lg:mr-[5.5rem]' : 'lg:ml-[5.5rem]')
-    : (isArabic ? 'lg:mr-[24rem]' : 'lg:ml-[24rem]');
+    : (isArabic ? 'lg:mr-[20rem]' : 'lg:ml-[20rem]');
 
   useEffect(() => {
     if (!isMobileSidebarOpen) return undefined;
@@ -199,7 +199,7 @@ function RevendeurLayout() {
   }, [isMobileSidebarOpen]);
 
   return (
-    <div className="min-h-screen bg-[#f3f5fb] flex">
+    <div className="min-h-screen bg-slate-100 flex">
       <aside
         role="dialog"
         aria-modal={isMobileSidebarOpen ? 'true' : undefined}
@@ -207,7 +207,7 @@ function RevendeurLayout() {
         className={`fixed top-0 z-40 h-[100dvh] w-[88vw] max-w-[22rem] transform transition-transform duration-300 ease-out lg:h-screen lg:max-w-none ${sidebarDesktopWidth} ${isArabic ? 'right-0' : 'left-0'} ${isMobileSidebarOpen ? 'translate-x-0' : mobileSidebarHidden} lg:translate-x-0`}
       >
         <div className="m-2.5 h-[calc(100dvh-1.25rem)] overflow-hidden lg:m-3 lg:h-[calc(100vh-1.5rem)]">
-          <div className="flex h-full flex-col overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.18)] lg:hidden">
+          <div className="flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-lg lg:hidden">
           <div className={`border-b border-slate-200 ${isSidebarCollapsed ? 'px-2 py-3 lg:px-2' : 'px-4 py-4'}`}>
             <div className="relative mb-3 flex items-center justify-center lg:hidden">
               <div className="h-1.5 w-12 rounded-full bg-slate-200" />
@@ -238,7 +238,7 @@ function RevendeurLayout() {
               <>
                 <div className="flex items-start justify-between gap-3">
                   <Link to="/" className="min-w-0">
-                    <p className="truncate text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-600/90">
+                    <p className="truncate text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                       Workspace revendeur
                     </p>
                     <p className="mt-1 truncate text-lg font-black tracking-tight text-slate-950">
@@ -260,8 +260,8 @@ function RevendeurLayout() {
                   </button>
                 </div>
 
-                <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-[0_12px_24px_rgba(15,23,42,0.05)]">
-                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-xs font-bold text-white shadow-sm">
+                <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                  <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-xs font-bold text-white shadow-sm">
                     {canRenderAvatarImage ? (
                       <img
                         src={userAvatarUrl}
@@ -281,30 +281,30 @@ function RevendeurLayout() {
                   </div>
                 </div>
 
-                <div className="mt-3 hidden rounded-[24px] border border-cyan-100 bg-[radial-gradient(circle_at_top_left,_rgba(236,254,255,0.95),_rgba(255,255,255,0.98)_55%,_rgba(240,249,255,1))] px-4 py-4 shadow-[0_18px_40px_rgba(14,116,144,0.10)] lg:block">
+                <div className="mt-3 hidden rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 lg:block">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-600">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                         Operations center
                       </p>
                       <p className="mt-1 text-base font-black tracking-tight text-slate-950">
                         Vision claire de votre activite
                       </p>
                     </div>
-                    <span className="rounded-full border border-cyan-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-cyan-700 shadow-sm">
+                    <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600">
                       Live
                     </span>
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-2">
-                    <div className="rounded-2xl border border-white bg-white/85 px-3 py-2.5 shadow-sm">
+                    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Dossiers</p>
                       <p className="mt-1 text-lg font-black text-slate-950">{dossierCount}</p>
                     </div>
-                    <div className="rounded-2xl border border-white bg-white/85 px-3 py-2.5 shadow-sm">
+                    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Clients</p>
                       <p className="mt-1 text-lg font-black text-slate-950">{clientCount}</p>
                     </div>
-                    <div className="rounded-2xl border border-white bg-white/85 px-3 py-2.5 shadow-sm">
+                    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2.5">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Reseau</p>
                       <p className="mt-1 text-lg font-black text-slate-950">{fournisseurCount}</p>
                     </div>
@@ -341,14 +341,14 @@ function RevendeurLayout() {
                       isSidebarCollapsed ? 'justify-center px-0 py-1.5' : 'min-h-[56px] gap-3 px-3 py-3 lg:min-h-0 lg:py-2.5'
                     } ${
                       active
-                        ? 'border-cyan-200/80 bg-gradient-to-r from-cyan-50 via-white to-cyan-50 text-slate-900 shadow-[0_10px_24px_rgba(14,116,144,0.14)]'
-                        : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+                        ? 'border-slate-300 bg-slate-100 text-slate-900 shadow-sm'
+                        : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
                     <span
                       className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${
                         active
-                          ? 'border-cyan-200 bg-cyan-100 text-cyan-700 shadow-sm'
+                          ? 'border-slate-300 bg-white text-slate-900'
                           : 'border-slate-200 bg-white text-slate-500 group-hover:text-slate-800'
                       }`}
                     >
@@ -361,7 +361,7 @@ function RevendeurLayout() {
                         {item.badge && (
                           <span
                             className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                              active ? 'bg-cyan-100 text-cyan-700' : 'bg-slate-200 text-slate-700'
+                              active ? 'bg-slate-200 text-slate-800' : 'bg-slate-200 text-slate-700'
                             }`}
                           >
                             {item.badge}
@@ -399,14 +399,14 @@ function RevendeurLayout() {
                       isSidebarCollapsed ? 'justify-center px-0 py-1.5' : 'min-h-[56px] gap-3 px-3 py-3 lg:min-h-0 lg:py-2.5'
                     } ${
                       active
-                        ? 'border-cyan-200/80 bg-gradient-to-r from-cyan-50 via-white to-cyan-50 text-slate-900 shadow-[0_10px_24px_rgba(14,116,144,0.14)]'
-                        : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-900 hover:shadow-sm'
+                        ? 'border-slate-300 bg-slate-100 text-slate-900 shadow-sm'
+                        : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-900'
                     }`}
                   >
                     <span
                       className={`flex h-10 w-10 items-center justify-center rounded-xl border transition-colors ${
                         active
-                          ? 'border-cyan-200 bg-cyan-100 text-cyan-700 shadow-sm'
+                          ? 'border-slate-300 bg-white text-slate-900'
                           : 'border-slate-200 bg-white text-slate-500 group-hover:text-slate-800'
                       }`}
                     >
@@ -423,9 +423,9 @@ function RevendeurLayout() {
             {!isSidebarCollapsed && (
               <Link
                 to="/revendeur/support"
-                className="mb-3 hidden items-start gap-3 rounded-[24px] border border-slate-200 bg-white px-3 py-3 text-left shadow-[0_16px_28px_rgba(15,23,42,0.06)] transition-colors hover:bg-slate-50 lg:flex"
+                className="mb-3 hidden items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-left transition-colors hover:bg-slate-100 lg:flex"
               >
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-100 text-cyan-700">
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-200 text-slate-700">
                   <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="9" />
                     <path d="M9.1 9a3 3 0 0 1 5.8 1c0 1.9-2.9 2.3-2.9 4" />
@@ -460,8 +460,8 @@ function RevendeurLayout() {
           </div>
 
           <div className="hidden h-full gap-3 lg:flex">
-            <div className="flex h-full w-[5.5rem] flex-col items-center rounded-[32px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(241,245,249,0.96))] px-3 py-4 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-              <div className="flex h-14 w-14 items-center justify-center rounded-[22px] border border-white/80 bg-gradient-to-br from-cyan-100 via-white to-slate-100 text-slate-950 shadow-sm">
+            <div className="flex h-full w-[5.5rem] flex-col items-center rounded-3xl border border-slate-200 bg-white px-3 py-4 shadow-lg">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-950 shadow-sm">
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 3.5l1.8 4.7L18.5 10l-4.7 1.8L12 16.5l-1.8-4.7L5.5 10l4.7-1.8L12 3.5z" />
                 </svg>
@@ -469,7 +469,7 @@ function RevendeurLayout() {
 
               <button
                 onClick={() => setIsSidebarCollapsed((prev) => !prev)}
-                className="mt-4 flex h-11 w-11 items-center justify-center rounded-[18px] border border-white/80 bg-white/90 text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:text-slate-950"
+                className="mt-4 flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:text-slate-950"
                 title={isSidebarCollapsed ? 'expand-sidebar' : 'collapse-sidebar'}
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -490,8 +490,8 @@ function RevendeurLayout() {
                         title={item.label}
                         className={`group relative flex h-12 w-12 items-center justify-center rounded-[18px] border transition-all ${
                           active
-                            ? 'border-slate-900 bg-slate-950 text-white shadow-[0_14px_28px_rgba(15,23,42,0.28)]'
-                            : 'border-transparent bg-white/70 text-slate-500 hover:border-slate-200 hover:bg-white hover:text-slate-950'
+                            ? 'border-slate-900 bg-slate-900 text-white shadow-md'
+                            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-950'
                         }`}
                       >
                         {renderNavIcon(item.icon)}
@@ -519,8 +519,8 @@ function RevendeurLayout() {
                         title={item.label}
                         className={`flex h-12 w-12 items-center justify-center rounded-[18px] border transition-all ${
                           active
-                            ? 'border-slate-900 bg-slate-950 text-white shadow-[0_14px_28px_rgba(15,23,42,0.28)]'
-                            : 'border-transparent bg-white/70 text-slate-500 hover:border-slate-200 hover:bg-white hover:text-slate-950'
+                            ? 'border-slate-900 bg-slate-900 text-white shadow-md'
+                            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-950'
                         }`}
                       >
                         {renderNavIcon(item.icon)}
@@ -533,7 +533,7 @@ function RevendeurLayout() {
               <button
                 onClick={handleLogout}
                 title={t('common.logout')}
-                className="mt-4 flex h-12 w-12 items-center justify-center rounded-[18px] border border-white/80 bg-white/85 text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-rose-100 hover:bg-rose-50 hover:text-rose-700"
+                className="mt-4 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-rose-100 hover:bg-rose-50 hover:text-rose-700"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -544,10 +544,10 @@ function RevendeurLayout() {
             </div>
 
             {!isSidebarCollapsed && (
-              <div className="flex min-w-0 flex-1 flex-col rounded-[32px] border border-white/85 bg-white/92 p-4 shadow-[0_28px_72px_rgba(15,23,42,0.14)] backdrop-blur-xl">
+              <div className="flex min-w-0 flex-1 flex-col rounded-3xl border border-slate-200 bg-white p-4 shadow-lg">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-600/90">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                       Menu revendeur
                     </p>
                     <p className="mt-2 truncate text-[1.45rem] font-black tracking-tight text-slate-950">
@@ -557,13 +557,13 @@ function RevendeurLayout() {
                       Navigation rapide, dossiers actifs et support centralises dans une seule vue.
                     </p>
                   </div>
-                  <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Pro
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center gap-3 rounded-[26px] border border-slate-200/90 bg-white px-3 py-3 shadow-[0_14px_28px_rgba(15,23,42,0.05)]">
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-sm font-bold text-white shadow-sm">
+                <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-sm font-bold text-white shadow-sm">
                     {canRenderAvatarImage ? (
                       <img
                         src={userAvatarUrl}
@@ -581,42 +581,42 @@ function RevendeurLayout() {
                     <p className="truncate text-[15px] font-semibold text-slate-950">{displayName}</p>
                     <p className="truncate text-[13px] text-slate-500">{userCity || 'Tunisia'}</p>
                   </div>
-                  <span className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-semibold text-cyan-700">
+                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600">
                     Live workspace
                   </span>
                 </div>
 
-                <div className="mt-4 rounded-[28px] border border-slate-200/85 bg-[radial-gradient(circle_at_top_left,_rgba(236,254,255,0.98),_rgba(255,255,255,0.96)_52%,_rgba(240,249,255,1))] p-4 shadow-[0_18px_40px_rgba(14,116,144,0.10)]">
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-cyan-600">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
                         Daily pulse
                       </p>
                       <p className="mt-2 text-base font-black tracking-tight text-slate-950">
                         Tout ce qui compte aujourd'hui
                       </p>
                     </div>
-                    <span className="rounded-full border border-cyan-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-cyan-700 shadow-sm">
+                    <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600">
                       Active
                     </span>
                   </div>
                   <div className="mt-4 grid grid-cols-3 gap-2.5">
-                    <div className="rounded-[22px] border border-white bg-white/90 px-3 py-3 shadow-sm">
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Dossiers</p>
                       <p className="mt-1 text-lg font-black text-slate-950">{dossierCount}</p>
                     </div>
-                    <div className="rounded-[22px] border border-white bg-white/90 px-3 py-3 shadow-sm">
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Clients</p>
                       <p className="mt-1 text-lg font-black text-slate-950">{clientCount}</p>
                     </div>
-                    <div className="rounded-[22px] border border-white bg-white/90 px-3 py-3 shadow-sm">
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Reseau</p>
                       <p className="mt-1 text-lg font-black text-slate-950">{fournisseurCount}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-[28px] border border-slate-200/85 bg-slate-50/85">
+                <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-slate-50">
                   <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
@@ -639,14 +639,14 @@ function RevendeurLayout() {
                             to={item.path}
                             onMouseEnter={() => prefetchRouteIntent(item.path)}
                             onFocus={() => prefetchRouteIntent(item.path)}
-                            className={`group flex min-h-[60px] items-center gap-3 rounded-[22px] border px-3.5 py-3 transition-all ${
+                            className={`group flex min-h-[60px] items-center gap-3 rounded-xl border px-3.5 py-3 transition-all ${
                               active
-                                ? 'border-slate-950 bg-slate-950 text-white shadow-[0_18px_32px_rgba(15,23,42,0.22)]'
-                                : 'border-transparent bg-white/90 text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-950'
+                                ? 'border-slate-900 bg-slate-900 text-white shadow-md'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950'
                             }`}
                           >
                             <span
-                              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[16px] border ${
+                              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border ${
                                 active ? 'border-white/10 bg-white/10 text-white' : 'border-slate-200 bg-white text-slate-500'
                               }`}
                             >
@@ -683,14 +683,14 @@ function RevendeurLayout() {
                             to={item.path}
                             onMouseEnter={() => prefetchRouteIntent(item.path)}
                             onFocus={() => prefetchRouteIntent(item.path)}
-                            className={`group flex min-h-[56px] items-center gap-3 rounded-[22px] border px-3.5 py-3 transition-all ${
+                            className={`group flex min-h-[56px] items-center gap-3 rounded-xl border px-3.5 py-3 transition-all ${
                               active
-                                ? 'border-slate-950 bg-slate-950 text-white shadow-[0_18px_32px_rgba(15,23,42,0.22)]'
-                                : 'border-transparent bg-white/90 text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-950'
+                                ? 'border-slate-900 bg-slate-900 text-white shadow-md'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950'
                             }`}
                           >
                             <span
-                              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[16px] border ${
+                              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border ${
                                 active ? 'border-white/10 bg-white/10 text-white' : 'border-slate-200 bg-white text-slate-500'
                               }`}
                             >
@@ -709,8 +709,8 @@ function RevendeurLayout() {
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center gap-3 rounded-[26px] border border-slate-200 bg-white px-3.5 py-3 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
-                  <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[16px] bg-cyan-100 text-cyan-700">
+                <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3">
+                  <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-slate-200 text-slate-700">
                     <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <circle cx="12" cy="12" r="9" />
                       <path d="M9.1 9a3 3 0 0 1 5.8 1c0 1.9-2.9 2.3-2.9 4" />
@@ -725,7 +725,7 @@ function RevendeurLayout() {
                   </Link>
                   <Link
                     to="/revendeur/support"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-[16px] border border-slate-200 bg-slate-50 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950"
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950"
                     aria-label="Open support"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
