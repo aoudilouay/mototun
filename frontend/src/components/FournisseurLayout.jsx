@@ -138,11 +138,11 @@ function FournisseurLayout() {
   const userCity = String(user?.city || user?.profile?.city || '').trim();
   const canRenderAvatarImage = Boolean(userAvatarUrl) && failedAvatarUrl !== userAvatarUrl;
 
-  const sidebarDesktopWidth = isSidebarCollapsed ? 'lg:w-[5.5rem]' : 'lg:w-[24rem]';
+  const sidebarDesktopWidth = isSidebarCollapsed ? 'lg:w-[5.5rem]' : 'lg:w-[20rem]';
   const mobileSidebarHidden = isArabic ? 'translate-x-full' : '-translate-x-full';
   const contentOffset = isSidebarCollapsed
     ? (isArabic ? 'lg:mr-[5.5rem]' : 'lg:ml-[5.5rem]')
-    : (isArabic ? 'lg:mr-[24rem]' : 'lg:ml-[24rem]');
+    : (isArabic ? 'lg:mr-[20rem]' : 'lg:ml-[20rem]');
 
   useEffect(() => {
     if (!isMobileSidebarOpen) return undefined;
@@ -418,8 +418,8 @@ function FournisseurLayout() {
           </div>
 
           <div className="hidden h-full gap-3 lg:flex">
-            <div className="flex h-full w-[5.5rem] flex-col items-center rounded-[32px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(241,245,249,0.96))] px-3 py-4 shadow-[0_24px_60px_rgba(15,23,42,0.12)] backdrop-blur-xl">
-              <div className="flex h-14 w-14 items-center justify-center rounded-[22px] border border-white/80 bg-gradient-to-br from-emerald-100 via-white to-slate-100 text-slate-950 shadow-sm">
+            <div className="flex h-full w-[5.5rem] flex-col items-center rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-950">
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 3.5l1.8 4.7L18.5 10l-4.7 1.8L12 16.5l-1.8-4.7L5.5 10l4.7-1.8L12 3.5z" />
                 </svg>
@@ -427,7 +427,7 @@ function FournisseurLayout() {
 
               <button
                 onClick={() => setIsSidebarCollapsed((prev) => !prev)}
-                className="mt-4 flex h-11 w-11 items-center justify-center rounded-[18px] border border-white/80 bg-white/90 text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:text-slate-950"
+                className="mt-3 flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-950"
                 title={isSidebarCollapsed ? 'expand-sidebar' : 'collapse-sidebar'}
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -435,7 +435,7 @@ function FournisseurLayout() {
                 </svg>
               </button>
 
-              <div className="mt-6 flex flex-1 flex-col items-center">
+              <div className="mt-5 flex flex-1 flex-col items-center">
                 <div className="flex w-full flex-col items-center gap-2">
                   {menuItems.map((item) => {
                     const active = isActiveRoute(item.path);
@@ -446,15 +446,15 @@ function FournisseurLayout() {
                         onMouseEnter={() => prefetchRouteIntent(item.path)}
                         onFocus={() => prefetchRouteIntent(item.path)}
                         title={item.label}
-                        className={`group relative flex h-12 w-12 items-center justify-center rounded-[18px] border transition-all ${
+                        className={`group relative flex h-11 w-11 items-center justify-center rounded-lg border transition-colors ${
                           active
-                            ? 'border-slate-900 bg-slate-950 text-white shadow-[0_14px_28px_rgba(15,23,42,0.28)]'
-                            : 'border-transparent bg-white/70 text-slate-500 hover:border-slate-200 hover:bg-white hover:text-slate-950'
+                            ? 'border-slate-900 bg-slate-900 text-white shadow-md'
+                            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-950'
                         }`}
                       >
                         {renderNavIcon(item.icon)}
                         {item.badge && (
-                          <span className="absolute -right-1 -top-1 min-w-[20px] rounded-full bg-emerald-500 px-1.5 py-0.5 text-center text-[10px] font-semibold text-white shadow-sm">
+                          <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-sky-500 px-1.5 py-0.5 text-center text-[10px] font-semibold text-white">
                             {item.badge}
                           </span>
                         )}
@@ -463,7 +463,7 @@ function FournisseurLayout() {
                   })}
                 </div>
 
-                <div className="my-4 h-12 w-px bg-slate-200" />
+                <div className="my-4 h-10 w-px bg-slate-200" />
 
                 <div className="flex w-full flex-col items-center gap-2">
                   {secondaryMenuItems.map((item) => {
@@ -475,10 +475,10 @@ function FournisseurLayout() {
                         onMouseEnter={() => prefetchRouteIntent(item.path)}
                         onFocus={() => prefetchRouteIntent(item.path)}
                         title={item.label}
-                        className={`flex h-12 w-12 items-center justify-center rounded-[18px] border transition-all ${
+                        className={`flex h-11 w-11 items-center justify-center rounded-lg border transition-colors ${
                           active
-                            ? 'border-slate-900 bg-slate-950 text-white shadow-[0_14px_28px_rgba(15,23,42,0.28)]'
-                            : 'border-transparent bg-white/70 text-slate-500 hover:border-slate-200 hover:bg-white hover:text-slate-950'
+                            ? 'border-slate-900 bg-slate-900 text-white shadow-md'
+                            : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-950'
                         }`}
                       >
                         {renderNavIcon(item.icon)}
@@ -491,7 +491,7 @@ function FournisseurLayout() {
               <button
                 onClick={handleLogout}
                 title={t('common.logout')}
-                className="mt-4 flex h-12 w-12 items-center justify-center rounded-[18px] border border-white/80 bg-white/85 text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-rose-100 hover:bg-rose-50 hover:text-rose-700"
+                className="mt-3 flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-rose-100 hover:bg-rose-50 hover:text-rose-700"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -499,193 +499,148 @@ function FournisseurLayout() {
                   <path d="M21 12H9" />
                 </svg>
               </button>
+
+              <div className="mt-3 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-[10px] font-semibold text-slate-700">
+                {canRenderAvatarImage ? (
+                  <img
+                    src={userAvatarUrl}
+                    alt={user?.fullName || 'Avatar'}
+                    className="h-full w-full object-cover"
+                    loading="eager"
+                    decoding="async"
+                    onError={() => setFailedAvatarUrl(userAvatarUrl || '')}
+                  />
+                ) : (
+                  getUserInitials()
+                )}
+              </div>
             </div>
 
             {!isSidebarCollapsed && (
-              <div className="flex min-w-0 flex-1 flex-col rounded-[32px] border border-white/85 bg-white/92 p-4 shadow-[0_28px_72px_rgba(15,23,42,0.14)] backdrop-blur-xl">
-                <div className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 flex-1 flex-col rounded-3xl border border-slate-200 bg-white p-4 shadow-lg">
+                <div className="flex items-center justify-between gap-3 pb-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600/90">
-                      Menu fournisseur
-                    </p>
-                    <p className="mt-2 truncate text-[1.45rem] font-black tracking-tight text-slate-950">
-                      Coordination hub
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">
-                      Centralisez les flux revendeurs, les dossiers carte grise et les actions prioritaires.
-                    </p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Menu fournisseur</p>
+                    <p className="mt-1 truncate text-lg font-bold text-slate-900">Navigation</p>
                   </div>
-                  <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Pro
-                  </div>
-                </div>
-
-                <div className="mt-4 flex items-center gap-3 rounded-[26px] border border-slate-200/90 bg-white px-3 py-3 shadow-[0_14px_28px_rgba(15,23,42,0.05)]">
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-emerald-400 to-teal-500 text-sm font-bold text-white shadow-sm">
-                    {canRenderAvatarImage ? (
-                      <img
-                        src={userAvatarUrl}
-                        alt={user?.fullName || 'Avatar'}
-                        className="h-full w-full object-cover"
-                        loading="eager"
-                        decoding="async"
-                        onError={() => setFailedAvatarUrl(userAvatarUrl || '')}
-                      />
-                    ) : (
-                      getUserInitials()
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-semibold text-slate-950">{displayName}</p>
-                    <p className="truncate text-[13px] text-slate-500">{userCity || 'Tunisia'}</p>
-                  </div>
-                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
-                    Coordination live
-                  </span>
-                </div>
-
-                <div className="mt-4 rounded-[28px] border border-slate-200/85 bg-[radial-gradient(circle_at_top_left,_rgba(236,253,245,0.98),_rgba(255,255,255,0.96)_52%,_rgba(236,253,245,0.98))] p-4 shadow-[0_18px_40px_rgba(5,150,105,0.10)]">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-600">
-                        Daily pulse
-                      </p>
-                      <p className="mt-2 text-base font-black tracking-tight text-slate-950">
-                        Vision nette des flux entrants
-                      </p>
-                    </div>
-                    <span className="rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 shadow-sm">
-                      Active
-                    </span>
-                  </div>
-                  <div className="mt-4 grid grid-cols-2 gap-2.5">
-                    <div className="rounded-[22px] border border-white bg-white/90 px-3 py-3 shadow-sm">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Revendeurs</p>
-                      <p className="mt-1 text-lg font-black text-slate-950">{revendeurCount}</p>
-                    </div>
-                    <div className="rounded-[22px] border border-white bg-white/90 px-3 py-3 shadow-sm">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Dossiers</p>
-                      <p className="mt-1 text-lg font-black text-slate-950">{dossierCount}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-[28px] border border-slate-200/85 bg-slate-50/85">
-                  <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                        Navigation
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">Modules prioritaires fournisseur</p>
-                    </div>
-                    <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500">
-                      {allNavigationItems.length} modules
-                    </span>
-                  </div>
-
-                  <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                    <div className="space-y-2">
-                      {menuItems.map((item) => {
-                        const active = isActiveRoute(item.path);
-                        return (
-                          <Link
-                            key={`panel-${item.path}`}
-                            to={item.path}
-                            onMouseEnter={() => prefetchRouteIntent(item.path)}
-                            onFocus={() => prefetchRouteIntent(item.path)}
-                            className={`group flex min-h-[60px] items-center gap-3 rounded-[22px] border px-3.5 py-3 transition-all ${
-                              active
-                                ? 'border-slate-950 bg-slate-950 text-white shadow-[0_18px_32px_rgba(15,23,42,0.22)]'
-                                : 'border-transparent bg-white/90 text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-950'
-                            }`}
-                          >
-                            <span
-                              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[16px] border ${
-                                active ? 'border-white/10 bg-white/10 text-white' : 'border-slate-200 bg-white text-slate-500'
-                              }`}
-                            >
-                              {renderNavIcon(item.icon)}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-semibold">{item.label}</span>
-                              <span className={`mt-0.5 block truncate text-xs ${active ? 'text-slate-300' : 'text-slate-400'}`}>
-                                {itemDescriptions[item.path]}
-                              </span>
-                            </span>
-                            {item.badge && (
-                              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${active ? 'bg-white/10 text-white' : 'bg-slate-200 text-slate-700'}`}>
-                                {item.badge}
-                              </span>
-                            )}
-                          </Link>
-                        );
-                      })}
-                    </div>
-
-                    <div className="my-4 h-px bg-slate-200" />
-
-                    <div className="mb-3 flex items-center justify-between px-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">More</p>
-                      <span className="text-[11px] font-medium text-slate-400">Support & reglages</span>
-                    </div>
-                    <div className="space-y-2">
-                      {secondaryMenuItems.map((item) => {
-                        const active = isActiveRoute(item.path);
-                        return (
-                          <Link
-                            key={`panel-${item.path}`}
-                            to={item.path}
-                            onMouseEnter={() => prefetchRouteIntent(item.path)}
-                            onFocus={() => prefetchRouteIntent(item.path)}
-                            className={`group flex min-h-[56px] items-center gap-3 rounded-[22px] border px-3.5 py-3 transition-all ${
-                              active
-                                ? 'border-slate-950 bg-slate-950 text-white shadow-[0_18px_32px_rgba(15,23,42,0.22)]'
-                                : 'border-transparent bg-white/90 text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-950'
-                            }`}
-                          >
-                            <span
-                              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[16px] border ${
-                                active ? 'border-white/10 bg-white/10 text-white' : 'border-slate-200 bg-white text-slate-500'
-                              }`}
-                            >
-                              {renderNavIcon(item.icon)}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-semibold">{item.label}</span>
-                              <span className={`mt-0.5 block truncate text-xs ${active ? 'text-slate-300' : 'text-slate-400'}`}>
-                                {itemDescriptions[item.path]}
-                              </span>
-                            </span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex items-center gap-3 rounded-[26px] border border-slate-200 bg-white px-3.5 py-3 shadow-[0_14px_30px_rgba(15,23,42,0.05)]">
-                  <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-[16px] bg-emerald-100 text-emerald-700">
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="9" />
-                      <path d="M9.1 9a3 3 0 0 1 5.8 1c0 1.9-2.9 2.3-2.9 4" />
-                      <path d="M12 17h.01" />
-                    </svg>
-                  </span>
-                  <Link to="/fournisseur/support" className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-slate-950">Support fournisseur</span>
-                    <span className="mt-1 block truncate text-xs text-slate-500">
-                      Ouvrez un ticket, suivez les reponses et gardez une trace claire de vos demandes.
-                    </span>
-                  </Link>
-                  <Link
-                    to="/fournisseur/support"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-[16px] border border-slate-200 bg-slate-50 text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950"
-                    aria-label="Open support"
+                  <button
+                    onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                    title="collapse-sidebar"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
-                  </Link>
+                  </button>
+                </div>
+
+                <div className="border-t border-slate-200 pt-3">
+                  <button
+                    onClick={() => setShowUserMenu((prev) => !prev)}
+                    className="flex w-full items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 text-left transition-colors hover:bg-slate-100"
+                  >
+                    <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-xs font-bold text-white">
+                      {canRenderAvatarImage ? (
+                        <img
+                          src={userAvatarUrl}
+                          alt={user?.fullName || 'Avatar'}
+                          className="h-full w-full object-cover"
+                          loading="eager"
+                          decoding="async"
+                          onError={() => setFailedAvatarUrl(userAvatarUrl || '')}
+                        />
+                      ) : (
+                        getUserInitials()
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-slate-900">{displayName}</span>
+                      <span className="block truncate text-xs text-slate-500">{userCity || 'Tunisia'}</span>
+                    </span>
+                    <svg className="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="my-3 h-px bg-slate-200" />
+
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <div className="space-y-1.5">
+                    {menuItems.map((item) => {
+                      const active = isActiveRoute(item.path);
+                      return (
+                        <Link
+                          key={`panel-${item.path}`}
+                          to={item.path}
+                          onMouseEnter={() => prefetchRouteIntent(item.path)}
+                          onFocus={() => prefetchRouteIntent(item.path)}
+                          className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+                            active
+                              ? 'bg-slate-100 text-slate-900'
+                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                          }`}
+                        >
+                          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500">
+                            {renderNavIcon(item.icon)}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{item.label}</span>
+                          {item.badge && (
+                            <span className="rounded-full bg-sky-500 px-2 py-0.5 text-[11px] font-semibold text-white">
+                              {item.badge}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+
+                  <div className="my-3 h-px bg-slate-200" />
+
+                  <div className="space-y-1.5">
+                    {secondaryMenuItems.map((item) => {
+                      const active = isActiveRoute(item.path);
+                      return (
+                        <Link
+                          key={`panel-${item.path}`}
+                          to={item.path}
+                          onMouseEnter={() => prefetchRouteIntent(item.path)}
+                          onFocus={() => prefetchRouteIntent(item.path)}
+                          className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+                            active
+                              ? 'bg-slate-100 text-slate-900'
+                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                          }`}
+                        >
+                          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500">
+                            {renderNavIcon(item.icon)}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-3 border-t border-slate-200 pt-3">
+                  <button
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-slate-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <path d="M16 17l5-5-5-5" />
+                        <path d="M21 12H9" />
+                      </svg>
+                    </span>
+                    <span className="text-sm font-medium">{t('common.logout')}</span>
+                  </button>
+
+                  <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2">
+                    <p className="truncate text-xs font-semibold text-slate-900">{displayName}</p>
+                    <p className="truncate text-[11px] text-slate-500">{userCity || 'Tunisia'}</p>
+                  </div>
                 </div>
               </div>
             )}

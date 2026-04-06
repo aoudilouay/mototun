@@ -460,8 +460,8 @@ function RevendeurLayout() {
           </div>
 
           <div className="hidden h-full gap-3 lg:flex">
-            <div className="flex h-full w-[5.5rem] flex-col items-center rounded-3xl border border-slate-200 bg-white px-3 py-4 shadow-lg">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-950 shadow-sm">
+            <div className="flex h-full w-[5.5rem] flex-col items-center rounded-2xl border border-slate-200 bg-white px-3 py-3 shadow-sm">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-slate-950">
                 <svg className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 3.5l1.8 4.7L18.5 10l-4.7 1.8L12 16.5l-1.8-4.7L5.5 10l4.7-1.8L12 3.5z" />
                 </svg>
@@ -469,7 +469,7 @@ function RevendeurLayout() {
 
               <button
                 onClick={() => setIsSidebarCollapsed((prev) => !prev)}
-                className="mt-4 flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:text-slate-950"
+                className="mt-3 flex h-10 w-10 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-950"
                 title={isSidebarCollapsed ? 'expand-sidebar' : 'collapse-sidebar'}
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -477,7 +477,7 @@ function RevendeurLayout() {
                 </svg>
               </button>
 
-              <div className="mt-6 flex flex-1 flex-col items-center">
+              <div className="mt-5 flex flex-1 flex-col items-center">
                 <div className="flex w-full flex-col items-center gap-2">
                   {menuItems.map((item) => {
                     const active = isActiveRoute(item.path);
@@ -488,7 +488,7 @@ function RevendeurLayout() {
                         onMouseEnter={() => prefetchRouteIntent(item.path)}
                         onFocus={() => prefetchRouteIntent(item.path)}
                         title={item.label}
-                        className={`group relative flex h-12 w-12 items-center justify-center rounded-[18px] border transition-all ${
+                        className={`group relative flex h-11 w-11 items-center justify-center rounded-lg border transition-colors ${
                           active
                             ? 'border-slate-900 bg-slate-900 text-white shadow-md'
                             : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-950'
@@ -496,7 +496,7 @@ function RevendeurLayout() {
                       >
                         {renderNavIcon(item.icon)}
                         {item.badge && (
-                          <span className="absolute -right-1 -top-1 min-w-[20px] rounded-full bg-cyan-500 px-1.5 py-0.5 text-center text-[10px] font-semibold text-white shadow-sm">
+                          <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-sky-500 px-1.5 py-0.5 text-center text-[10px] font-semibold text-white">
                             {item.badge}
                           </span>
                         )}
@@ -505,7 +505,7 @@ function RevendeurLayout() {
                   })}
                 </div>
 
-                <div className="my-4 h-12 w-px bg-slate-200" />
+                <div className="my-4 h-10 w-px bg-slate-200" />
 
                 <div className="flex w-full flex-col items-center gap-2">
                   {secondaryMenuItems.map((item) => {
@@ -517,7 +517,7 @@ function RevendeurLayout() {
                         onMouseEnter={() => prefetchRouteIntent(item.path)}
                         onFocus={() => prefetchRouteIntent(item.path)}
                         title={item.label}
-                        className={`flex h-12 w-12 items-center justify-center rounded-[18px] border transition-all ${
+                        className={`flex h-11 w-11 items-center justify-center rounded-lg border transition-colors ${
                           active
                             ? 'border-slate-900 bg-slate-900 text-white shadow-md'
                             : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-950'
@@ -533,7 +533,7 @@ function RevendeurLayout() {
               <button
                 onClick={handleLogout}
                 title={t('common.logout')}
-                className="mt-4 flex h-12 w-12 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm transition-all hover:-translate-y-0.5 hover:border-rose-100 hover:bg-rose-50 hover:text-rose-700"
+                className="mt-3 flex h-11 w-11 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-rose-100 hover:bg-rose-50 hover:text-rose-700"
               >
                 <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
@@ -541,6 +541,21 @@ function RevendeurLayout() {
                   <path d="M21 12H9" />
                 </svg>
               </button>
+
+              <div className="mt-3 flex h-8 w-8 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-[10px] font-semibold text-slate-700">
+                {canRenderAvatarImage ? (
+                  <img
+                    src={userAvatarUrl}
+                    alt={user?.fullName || 'Avatar'}
+                    className="h-full w-full object-cover"
+                    loading="eager"
+                    decoding="async"
+                    onError={() => setFailedAvatarUrl(userAvatarUrl || '')}
+                  />
+                ) : (
+                  getUserInitials()
+                )}
+              </div>
             </div>
 
             {!isSidebarCollapsed && (
