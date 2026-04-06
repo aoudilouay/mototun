@@ -113,6 +113,8 @@ function FournisseurLayout() {
   };
 
   const userAvatarUrl = resolveAvatarUrl(user?.avatar || user?.profile?.avatar);
+  const revendeurCount = menuItems.find((item) => item.path === '/fournisseur/revendeurs')?.badge || '24';
+  const dossierCount = menuItems.find((item) => item.path === '/fournisseur/carte-grise')?.badge || '12';
   const displayName = (() => {
     const fullName = String(user?.fullName || '').trim();
     if (fullName) return fullName;
@@ -228,6 +230,35 @@ function FournisseurLayout() {
                     <p className="truncate text-[15px] font-semibold text-slate-900">{user?.fullName || user?.businessName || t('nav.fournisseur')}</p>
                     <p className="truncate text-[13px] text-slate-500">{user?.city || 'Tunisia'}</p>
                   </div>
+                </div>
+
+                <div className="mt-3 hidden rounded-[24px] border border-emerald-100 bg-[radial-gradient(circle_at_top_left,_rgba(236,253,245,0.96),_rgba(255,255,255,0.99)_55%,_rgba(236,253,245,0.92))] px-4 py-4 shadow-[0_18px_40px_rgba(5,150,105,0.10)] lg:block">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-emerald-600">
+                        Operations center
+                      </p>
+                      <p className="mt-1 text-base font-black tracking-tight text-slate-950">
+                        Pilotage des dossiers fournisseurs
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-emerald-700 shadow-sm">
+                      Active
+                    </span>
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <div className="rounded-2xl border border-white bg-white/90 px-3 py-2.5 shadow-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Revendeurs</p>
+                      <p className="mt-1 text-lg font-black text-slate-950">{revendeurCount}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white bg-white/90 px-3 py-2.5 shadow-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Dossiers</p>
+                      <p className="mt-1 text-lg font-black text-slate-950">{dossierCount}</p>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-xs leading-5 text-slate-600">
+                    Organisez les workspaces revendeurs, suivez les dossiers a traiter et gardez une vision nette des flux entrants.
+                  </p>
                 </div>
 
               </>

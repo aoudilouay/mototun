@@ -148,6 +148,9 @@ function RevendeurLayout() {
     return 'RV';
   };
   const userAvatarUrl = resolveAvatarUrl(user?.avatar || user?.profile?.avatar);
+  const clientCount = menuItems.find((item) => item.path === '/revendeur/clients')?.badge || '12';
+  const dossierCount = menuItems.find((item) => item.path === '/revendeur/carte-grise')?.badge || '5';
+  const fournisseurCount = menuItems.find((item) => item.path === '/revendeur/fournisseurs')?.badge || '4';
   const displayName = (() => {
     const fullName = String(user?.fullName || '').trim();
     if (fullName) return fullName;
@@ -265,18 +268,36 @@ function RevendeurLayout() {
                   </div>
                 </div>
 
-                <div className="mt-3 hidden rounded-[24px] border border-cyan-100 bg-gradient-to-r from-cyan-50 via-white to-emerald-50 px-3 py-3 shadow-[0_16px_35px_rgba(6,182,212,0.10)] lg:block">
-                  <div className="flex items-center justify-between gap-3">
+                <div className="mt-3 hidden rounded-[24px] border border-cyan-100 bg-[radial-gradient(circle_at_top_left,_rgba(236,254,255,0.95),_rgba(255,255,255,0.98)_55%,_rgba(240,249,255,1))] px-4 py-4 shadow-[0_18px_40px_rgba(14,116,144,0.10)] lg:block">
+                  <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-600">Flux du jour</p>
-                      <p className="truncate text-sm font-bold text-slate-900">Ventes et dossiers</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-cyan-600">
+                        Operations center
+                      </p>
+                      <p className="mt-1 text-base font-black tracking-tight text-slate-950">
+                        Vision claire de votre activite
+                      </p>
                     </div>
-                    <span className="rounded-full bg-slate-950 px-2.5 py-1 text-[11px] font-semibold text-white">
-                      MVP
+                    <span className="rounded-full border border-cyan-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-cyan-700 shadow-sm">
+                      Live
                     </span>
                   </div>
-                  <p className="mt-2 text-xs leading-5 text-slate-600">
-                    Saisie rapide, facture externe, puis Carte grise sans etapes inutiles.
+                  <div className="mt-4 grid grid-cols-3 gap-2">
+                    <div className="rounded-2xl border border-white bg-white/85 px-3 py-2.5 shadow-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Dossiers</p>
+                      <p className="mt-1 text-lg font-black text-slate-950">{dossierCount}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white bg-white/85 px-3 py-2.5 shadow-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Clients</p>
+                      <p className="mt-1 text-lg font-black text-slate-950">{clientCount}</p>
+                    </div>
+                    <div className="rounded-2xl border border-white bg-white/85 px-3 py-2.5 shadow-sm">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Reseau</p>
+                      <p className="mt-1 text-lg font-black text-slate-950">{fournisseurCount}</p>
+                    </div>
+                  </div>
+                  <p className="mt-4 text-xs leading-5 text-slate-600">
+                    Centralisez les ventes, suivez les dossiers carte grise et gardez vos relations fournisseurs sous controle depuis un seul workspace.
                   </p>
                 </div>
               </>
