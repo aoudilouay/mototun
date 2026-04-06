@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { BrowserRouter as Router, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import AppErrorBoundary from './components/AppErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -7,6 +7,7 @@ import { AppPageSkeleton, AppShellSkeleton, PublicRouteSkeleton } from './compon
 import { AuthProvider } from './context/AuthContext';
 import { I18nProvider, useI18n } from './context/I18nContext';
 import { scheduleIdleTask } from './lib/browserScheduling';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import {
   loadCarteGrisePage,
   loadClientsPage,
@@ -167,6 +168,11 @@ function AnalyticsWrapper() {
   return <Suspense fallback={null}><Analytics /></Suspense>;
 }
 
+function SpeedInsightsWrapper() {
+  const location = useLocation();
+  return <SpeedInsights route={location.pathname} />;
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -176,6 +182,7 @@ function App() {
             <AppRoutes />
             <Toaster richColors position="bottom-right" />
             <AnalyticsWrapper />
+            <SpeedInsightsWrapper />
           </Router>
         </AppErrorBoundary>
       </I18nProvider>
