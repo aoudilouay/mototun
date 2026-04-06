@@ -545,193 +545,129 @@ function RevendeurLayout() {
 
             {!isSidebarCollapsed && (
               <div className="flex min-w-0 flex-1 flex-col rounded-3xl border border-slate-200 bg-white p-4 shadow-lg">
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center justify-between gap-3 pb-3">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                      Menu revendeur
-                    </p>
-                    <p className="mt-2 truncate text-[1.45rem] font-black tracking-tight text-slate-950">
-                      Poste de pilotage
-                    </p>
-                    <p className="mt-1 text-sm leading-6 text-slate-500">
-                      Navigation rapide, dossiers actifs et support centralises dans une seule vue.
-                    </p>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">Menu revendeur</p>
+                    <p className="mt-1 truncate text-lg font-bold text-slate-900">Navigation</p>
                   </div>
-                  <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Pro
-                  </div>
-                </div>
-
-                <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3">
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-sm font-bold text-white shadow-sm">
-                    {canRenderAvatarImage ? (
-                      <img
-                        src={userAvatarUrl}
-                        alt={user?.fullName || 'Avatar'}
-                        className="h-full w-full object-cover"
-                        loading="eager"
-                        decoding="async"
-                        onError={() => setFailedAvatarUrl(userAvatarUrl || '')}
-                      />
-                    ) : (
-                      getUserInitials()
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-[15px] font-semibold text-slate-950">{displayName}</p>
-                    <p className="truncate text-[13px] text-slate-500">{userCity || 'Tunisia'}</p>
-                  </div>
-                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600">
-                    Live workspace
-                  </span>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                        Daily pulse
-                      </p>
-                      <p className="mt-2 text-base font-black tracking-tight text-slate-950">
-                        Tout ce qui compte aujourd'hui
-                      </p>
-                    </div>
-                    <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600">
-                      Active
-                    </span>
-                  </div>
-                  <div className="mt-4 grid grid-cols-3 gap-2.5">
-                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Dossiers</p>
-                      <p className="mt-1 text-lg font-black text-slate-950">{dossierCount}</p>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Clients</p>
-                      <p className="mt-1 text-lg font-black text-slate-950">{clientCount}</p>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Reseau</p>
-                      <p className="mt-1 text-lg font-black text-slate-950">{fournisseurCount}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex min-h-0 flex-1 flex-col rounded-2xl border border-slate-200 bg-slate-50">
-                  <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">
-                        Navigation
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-slate-900">Acces rapide aux espaces metier</p>
-                    </div>
-                    <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500">
-                      {allNavigationItems.length} modules
-                    </span>
-                  </div>
-
-                  <div className="min-h-0 flex-1 overflow-y-auto p-3">
-                    <div className="space-y-2">
-                      {menuItems.map((item) => {
-                        const active = isActiveRoute(item.path);
-                        return (
-                          <Link
-                            key={`panel-${item.path}`}
-                            to={item.path}
-                            onMouseEnter={() => prefetchRouteIntent(item.path)}
-                            onFocus={() => prefetchRouteIntent(item.path)}
-                            className={`group flex min-h-[60px] items-center gap-3 rounded-xl border px-3.5 py-3 transition-all ${
-                              active
-                                ? 'border-slate-900 bg-slate-900 text-white shadow-md'
-                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950'
-                            }`}
-                          >
-                            <span
-                              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border ${
-                                active ? 'border-white/10 bg-white/10 text-white' : 'border-slate-200 bg-white text-slate-500'
-                              }`}
-                            >
-                              {renderNavIcon(item.icon)}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-semibold">{item.label}</span>
-                              <span className={`mt-0.5 block truncate text-xs ${active ? 'text-slate-300' : 'text-slate-400'}`}>
-                                {itemDescriptions[item.path]}
-                              </span>
-                            </span>
-                            {item.badge && (
-                              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${active ? 'bg-white/10 text-white' : 'bg-slate-200 text-slate-700'}`}>
-                                {item.badge}
-                              </span>
-                            )}
-                          </Link>
-                        );
-                      })}
-                    </div>
-
-                    <div className="my-4 h-px bg-slate-200" />
-
-                    <div className="mb-3 flex items-center justify-between px-1">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">More</p>
-                      <span className="text-[11px] font-medium text-slate-400">Support & analyse</span>
-                    </div>
-                    <div className="space-y-2">
-                      {secondaryMenuItems.map((item) => {
-                        const active = isActiveRoute(item.path);
-                        return (
-                          <Link
-                            key={`panel-${item.path}`}
-                            to={item.path}
-                            onMouseEnter={() => prefetchRouteIntent(item.path)}
-                            onFocus={() => prefetchRouteIntent(item.path)}
-                            className={`group flex min-h-[56px] items-center gap-3 rounded-xl border px-3.5 py-3 transition-all ${
-                              active
-                                ? 'border-slate-900 bg-slate-900 text-white shadow-md'
-                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950'
-                            }`}
-                          >
-                            <span
-                              className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border ${
-                                active ? 'border-white/10 bg-white/10 text-white' : 'border-slate-200 bg-white text-slate-500'
-                              }`}
-                            >
-                              {renderNavIcon(item.icon)}
-                            </span>
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-semibold">{item.label}</span>
-                              <span className={`mt-0.5 block truncate text-xs ${active ? 'text-slate-300' : 'text-slate-400'}`}>
-                                {itemDescriptions[item.path]}
-                              </span>
-                            </span>
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-3.5 py-3">
-                  <span className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl bg-slate-200 text-slate-700">
-                    <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <circle cx="12" cy="12" r="9" />
-                      <path d="M9.1 9a3 3 0 0 1 5.8 1c0 1.9-2.9 2.3-2.9 4" />
-                      <path d="M12 17h.01" />
-                    </svg>
-                  </span>
-                  <Link to="/revendeur/support" className="min-w-0 flex-1">
-                    <span className="block text-sm font-semibold text-slate-950">Support revendeur</span>
-                    <span className="mt-1 block truncate text-xs text-slate-500">
-                      Accedez vite aux tickets, aux reponses et a l'assistance admin.
-                    </span>
-                  </Link>
-                  <Link
-                    to="/revendeur/support"
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950"
-                    aria-label="Open support"
+                  <button
+                    onClick={() => setIsSidebarCollapsed((prev) => !prev)}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                    title="collapse-sidebar"
                   >
                     <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                     </svg>
-                  </Link>
+                  </button>
+                </div>
+
+                <div className="border-t border-slate-200 pt-3">
+                  <button
+                    onClick={() => setShowUserMenu((prev) => !prev)}
+                    className="flex w-full items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5 text-left transition-colors hover:bg-slate-100"
+                  >
+                    <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-slate-900 text-xs font-bold text-white">
+                      {canRenderAvatarImage ? (
+                        <img
+                          src={userAvatarUrl}
+                          alt={user?.fullName || 'Avatar'}
+                          className="h-full w-full object-cover"
+                          loading="eager"
+                          decoding="async"
+                          onError={() => setFailedAvatarUrl(userAvatarUrl || '')}
+                        />
+                      ) : (
+                        getUserInitials()
+                      )}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold text-slate-900">{displayName}</span>
+                      <span className="block truncate text-xs text-slate-500">{userCity || 'Tunisia'}</span>
+                    </span>
+                    <svg className="h-4 w-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="my-3 h-px bg-slate-200" />
+
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <div className="space-y-1.5">
+                    {menuItems.map((item) => {
+                      const active = isActiveRoute(item.path);
+                      return (
+                        <Link
+                          key={`panel-${item.path}`}
+                          to={item.path}
+                          onMouseEnter={() => prefetchRouteIntent(item.path)}
+                          onFocus={() => prefetchRouteIntent(item.path)}
+                          className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+                            active
+                              ? 'bg-slate-100 text-slate-900'
+                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                          }`}
+                        >
+                          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500">
+                            {renderNavIcon(item.icon)}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{item.label}</span>
+                          {item.badge && (
+                            <span className="rounded-full bg-sky-500 px-2 py-0.5 text-[11px] font-semibold text-white">
+                              {item.badge}
+                            </span>
+                          )}
+                        </Link>
+                      );
+                    })}
+                  </div>
+
+                  <div className="my-3 h-px bg-slate-200" />
+
+                  <div className="space-y-1.5">
+                    {secondaryMenuItems.map((item) => {
+                      const active = isActiveRoute(item.path);
+                      return (
+                        <Link
+                          key={`panel-${item.path}`}
+                          to={item.path}
+                          onMouseEnter={() => prefetchRouteIntent(item.path)}
+                          onFocus={() => prefetchRouteIntent(item.path)}
+                          className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+                            active
+                              ? 'bg-slate-100 text-slate-900'
+                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                          }`}
+                        >
+                          <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500">
+                            {renderNavIcon(item.icon)}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{item.label}</span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="mt-3 border-t border-slate-200 pt-3">
+                  <button
+                    onClick={handleLogout}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-slate-600 transition-colors hover:bg-rose-50 hover:text-rose-700"
+                  >
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <path d="M16 17l5-5-5-5" />
+                        <path d="M21 12H9" />
+                      </svg>
+                    </span>
+                    <span className="text-sm font-medium">{t('common.logout')}</span>
+                  </button>
+
+                  <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2">
+                    <p className="truncate text-xs font-semibold text-slate-900">{displayName}</p>
+                    <p className="truncate text-[11px] text-slate-500">{userCity || 'Tunisia'}</p>
+                  </div>
                 </div>
               </div>
             )}
