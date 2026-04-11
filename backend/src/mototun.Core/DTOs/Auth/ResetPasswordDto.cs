@@ -4,17 +4,17 @@ namespace mototun.Core.DTOs.Auth
 {
     public class ResetPasswordDto
     {
-        [Required(ErrorMessage = "Reset token is required")]
-        [MaxLength(512, ErrorMessage = "Reset token is too long")]
+        [Required(ErrorMessage = "Le lien de reinitialisation est obligatoire.")]
+        [MaxLength(512, ErrorMessage = "Le lien de reinitialisation est trop long.")]
         public string Token { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "New password is required")]
-        [MinLength(10, ErrorMessage = "Password must be at least 10 characters")]
-        [MaxLength(128, ErrorMessage = "Password is too long")]
+        [Required(ErrorMessage = "Ajoutez votre nouveau mot de passe.")]
+        [MinLength(10, ErrorMessage = "Ajoutez au moins 10 caracteres.")]
+        [MaxLength(128, ErrorMessage = "Le mot de passe est trop long.")]
         public string NewPassword { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Confirm password is required")]
-        [Compare(nameof(NewPassword), ErrorMessage = "Passwords do not match")]
+        [Required(ErrorMessage = "Confirmez votre mot de passe.")]
+        [Compare(nameof(NewPassword), ErrorMessage = "Les mots de passe ne correspondent pas.")]
         public string ConfirmPassword { get; set; } = string.Empty;
     }
 }

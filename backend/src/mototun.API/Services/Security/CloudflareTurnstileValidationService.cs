@@ -7,7 +7,7 @@ namespace mototun.API.Services.Security
 {
     public class CloudflareTurnstileValidationService : ITurnstileValidationService
     {
-        private const string GenericFailureMessage = "Security verification failed. Please try again.";
+        private const string GenericFailureMessage = "La verification de securite a echoue. Reessayez.";
         private readonly HttpClient _httpClient;
         private readonly IOptionsMonitor<CloudflareTurnstileOptions> _optionsMonitor;
         private readonly ILogger<CloudflareTurnstileValidationService> _logger;
@@ -35,7 +35,7 @@ namespace mototun.API.Services.Security
 
             if (string.IsNullOrWhiteSpace(token))
             {
-                return TurnstileValidationResult.Failed("Please complete the security challenge.");
+                return TurnstileValidationResult.Failed("Confirmez que vous n etes pas un robot.");
             }
 
             if (!ConfigurationValueGuards.HasConfiguredValue(options.SecretKey))

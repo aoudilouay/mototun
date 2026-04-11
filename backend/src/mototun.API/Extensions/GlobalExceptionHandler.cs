@@ -17,10 +17,12 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
     {
         var (statusCode, message) = exception switch
         {
-            BadHttpRequestException => (StatusCodes.Status400BadRequest, "Invalid request."),
-            DbUpdateException => (StatusCodes.Status503ServiceUnavailable, "Database connection is unavailable. Verify database configuration."),
-            DbException => (StatusCodes.Status503ServiceUnavailable, "Database connection is unavailable. Verify database configuration."),
-            _ => (StatusCodes.Status500InternalServerError, "Unexpected server error.")
+            BadHttpRequestException badHttpRequestException when IsRequestBodyTooLarge(badHttpRequestException)
+                => (StatusCodes.Status413PayloadTooLarge, "Le fichier est trop volumineux. Taille maximale: 50 Mo."),
+            BadHttpRequestException => (StatusCodes.Status400BadRequest, "La demande est incomplete ou invalide."),
+            DbUpdateException => (StatusCodes.Status503ServiceUnavailable, "La base de donnees ne repond pas pour le moment."),
+            DbException => (StatusCodes.Status503ServiceUnavailable, "La base de donnees ne repond pas pour le moment."),
+            _ => (StatusCodes.Status500InternalServerError, "Une erreur est survenue. Reessayez dans un instant.")
         };
 
         _logger.LogError(
@@ -38,5 +40,19 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         }, cancellationToken);
 
         return true;
+    }
+
+    private static bool IsRequestBodyTooLarge(BadHttpRequestException exception)
+    {
+        if (exception.StatusCode == StatusCodes.Status413PayloadTooLarge)
+        {
+            return true;
+        }
+
+        return exception.Message.Contains("Request body too large", StringComparison.OrdinalIgnoreCase)
+            || exception.Message.Contains("request body too large", StringComparison.OrdinalIgnoreCase)
+            || exception.Message.Contains("Multipart body length limit", StringComparison.OrdinalIgnoreCase)
+            || exception.Message.Contains("request body", StringComparison.OrdinalIgnoreCase)
+                && exception.Message.Contains("too large", StringComparison.OrdinalIgnoreCase);
     }
 }

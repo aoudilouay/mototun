@@ -40,22 +40,22 @@ namespace mototun.Infrastructure.Services
 
             if (await UserExistsAsync(normalizedEmail))
             {
-                throw new AuthValidationException("A user with this email already exists");
+                throw new AuthValidationException("Un compte existe deja avec cet email.");
             }
 
             if (dto.Role is not (UserRole.Revendeur or UserRole.Fournisseur))
             {
-                throw new AuthValidationException("Public registration is restricted to revendeur and fournisseur accounts.");
+                throw new AuthValidationException("Vous pouvez creer seulement un compte revendeur ou fournisseur.");
             }
 
             if (string.IsNullOrWhiteSpace(dto.BusinessName))
             {
-                throw new AuthValidationException("Business name is required");
+                throw new AuthValidationException("Ajoutez le nom du magasin ou de la societe.");
             }
 
             if (string.IsNullOrWhiteSpace(normalizedTaxId))
             {
-                throw new AuthValidationException("Tax ID is required");
+                throw new AuthValidationException("Ajoutez le matricule fiscal.");
             }
 
             var taxIdExists = dto.Role == UserRole.Revendeur
@@ -64,7 +64,7 @@ namespace mototun.Infrastructure.Services
 
             if (taxIdExists)
             {
-                throw new AuthValidationException("Tax ID already exists");
+                throw new AuthValidationException("Ce matricule fiscal existe deja.");
             }
 
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
@@ -142,24 +142,24 @@ namespace mototun.Infrastructure.Services
             if (user is null)
             {
                 BCrypt.Net.BCrypt.Verify(dto.Password, DummyPasswordHash);
-                throw new AuthAuthenticationException("Invalid email or password");
+                throw new AuthAuthenticationException("Email ou mot de passe incorrect.");
             }
 
             if (user.LockoutEndAt.HasValue && user.LockoutEndAt.Value > now)
             {
-                throw new AuthAuthenticationException("Invalid email or password");
+                throw new AuthAuthenticationException("Email ou mot de passe incorrect.");
             }
 
             if (!BCrypt.Net.BCrypt.Verify(dto.Password, user.PasswordHash))
             {
                 await RegisterFailedLoginAttemptAsync(user, now);
-                throw new AuthAuthenticationException("Invalid email or password");
+                throw new AuthAuthenticationException("Email ou mot de passe incorrect.");
             }
 
             if (user.Status != UserStatus.Active || !user.CanLogin)
             {
                 await RegisterFailedLoginAttemptAsync(user, now);
-                throw new AuthAuthenticationException("Invalid email or password");
+                throw new AuthAuthenticationException("Email ou mot de passe incorrect.");
             }
 
             user.LastLoginAt = now;
@@ -212,7 +212,7 @@ namespace mototun.Infrastructure.Services
         {
             if (!string.Equals(dto.NewPassword, dto.ConfirmPassword, StringComparison.Ordinal))
             {
-                throw new AuthValidationException("Passwords do not match.");
+                throw new AuthValidationException("Les mots de passe ne correspondent pas.");
             }
 
             ValidatePasswordStrength(dto.NewPassword);
@@ -220,7 +220,7 @@ namespace mototun.Infrastructure.Services
             var token = dto.Token?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(token))
             {
-                throw new AuthValidationException("Invalid or expired reset token.");
+                throw new AuthValidationException("Le lien de reinitialisation est invalide ou a expire.");
             }
 
             var tokenHash = HashToken(token);
@@ -234,7 +234,7 @@ namespace mototun.Infrastructure.Services
                 || !user.PasswordResetTokenExpiresAt.HasValue
                 || user.PasswordResetTokenExpiresAt.Value <= now)
             {
-                throw new AuthValidationException("Invalid or expired reset token.");
+                throw new AuthValidationException("Le lien de reinitialisation est invalide ou a expire.");
             }
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.NewPassword);
@@ -333,7 +333,7 @@ namespace mototun.Infrastructure.Services
         {
             if (string.IsNullOrWhiteSpace(password) || password.Length < MinimumPasswordLength)
             {
-                throw new AuthValidationException($"Password must be at least {MinimumPasswordLength} characters long.");
+                throw new AuthValidationException($"Le mot de passe doit contenir au moins {MinimumPasswordLength} caracteres.");
             }
 
             var hasUpper = false;
@@ -369,7 +369,7 @@ namespace mototun.Infrastructure.Services
 
             if (!hasUpper || !hasLower || !hasDigit || !hasSpecial)
             {
-                throw new AuthValidationException("Password must include uppercase, lowercase, number, and special character.");
+                throw new AuthValidationException("Ajoutez une majuscule, une minuscule, un chiffre et un symbole.");
             }
         }
 

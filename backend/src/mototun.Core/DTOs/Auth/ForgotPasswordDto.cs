@@ -4,11 +4,11 @@ namespace mototun.Core.DTOs.Auth
 {
     public class ForgotPasswordDto
     {
-        [Required(ErrorMessage = "Email is required")]
-        [EmailAddress(ErrorMessage = "Invalid email format")]
+        [Required(ErrorMessage = "Ajoutez votre email.")]
+        [EmailAddress(ErrorMessage = "L adresse email n est pas valide.")]
         public string Email { get; set; } = string.Empty;
 
-        [MaxLength(2048, ErrorMessage = "Security token is too long")]
+        [MaxLength(2048, ErrorMessage = "Le jeton de securite est trop long.")]
         public string? TurnstileToken { get; set; }
     }
 }

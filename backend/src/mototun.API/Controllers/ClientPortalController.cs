@@ -68,7 +68,7 @@ public class ClientPortalController : ControllerBase
             return BadRequest(new ApiResponse<ClientPortalDossierDto>
             {
                 Success = false,
-                Message = "Code invalide"
+                Message = "Code incorrect."
             });
         }
 
@@ -209,7 +209,7 @@ public class ClientPortalController : ControllerBase
             return BadRequest(new ApiResponse<ClientPortalUploadResultDto>
             {
                 Success = false,
-                Message = "Fichier manquant"
+                Message = "Aucun fichier recu."
             });
         }
 
@@ -218,7 +218,7 @@ public class ClientPortalController : ControllerBase
             return BadRequest(new ApiResponse<ClientPortalUploadResultDto>
             {
                 Success = false,
-                Message = "Le fichier depasse 50 MB"
+                Message = "Le fichier est trop grand. Maximum 50 Mo."
             });
         }
 
@@ -227,7 +227,7 @@ public class ClientPortalController : ControllerBase
             return BadRequest(new ApiResponse<ClientPortalUploadResultDto>
             {
                 Success = false,
-                Message = "Type de document invalide"
+                Message = "Ce type de document n est pas reconnu."
             });
         }
 
@@ -239,7 +239,7 @@ public class ClientPortalController : ControllerBase
             return BadRequest(new ApiResponse<ClientPortalUploadResultDto>
             {
                 Success = false,
-                Message = $"Format non supporte ({form.File.ContentType}). Utilisez PDF, PNG, JPG, WEBP, BMP, JFIF, HEIC/HEIF ou AVIF"
+                Message = $"Format non pris en charge ({form.File.ContentType}). Ajoutez un PDF ou une photo."
             });
         }
 
@@ -249,7 +249,7 @@ public class ClientPortalController : ControllerBase
             return Unauthorized(new ApiResponse<ClientPortalUploadResultDto>
             {
                 Success = false,
-                Message = "Acces refuse"
+                Message = "Acces refuse."
             });
         }
 
@@ -322,7 +322,7 @@ public class ClientPortalController : ControllerBase
         return Ok(new ApiResponse<ClientPortalUploadResultDto>
         {
             Success = true,
-            Message = "Document charge",
+            Message = "Document ajoute.",
             Data = new ClientPortalUploadResultDto
             {
                 DocumentId = existing.Id,
@@ -754,7 +754,7 @@ public class ClientPortalController : ControllerBase
 
     private static string BuildUploadRejectedMessage(ClientPortalDocumentType documentType)
     {
-        return $"Le fichier televerse ne correspond pas a un {GetDocumentLabel(documentType)} valide. Merci d'envoyer une photo claire du vrai document.";
+        return $"Le fichier envoye ne ressemble pas a un {GetDocumentLabel(documentType)} valide. Merci d envoyer une photo claire du vrai document.";
     }
 
     private async Task<Invoice?> FindInvoiceByAccessCodeAsync(string normalizedCode)

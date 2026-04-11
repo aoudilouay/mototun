@@ -1999,7 +1999,7 @@ public class InvoicesController : ControllerBase
             return BadRequest(new ApiResponse<InvoiceDocumentDto>
             {
                 Success = false,
-                Message = "Fichier manquant"
+                Message = "Aucun fichier recu."
             });
         }
 
@@ -2008,7 +2008,7 @@ public class InvoicesController : ControllerBase
             return BadRequest(new ApiResponse<InvoiceDocumentDto>
             {
                 Success = false,
-                Message = "Le fichier depasse 50 MB"
+                Message = "Le fichier est trop grand. Maximum 50 Mo."
             });
         }
 
@@ -2017,7 +2017,7 @@ public class InvoicesController : ControllerBase
             return BadRequest(new ApiResponse<InvoiceDocumentDto>
             {
                 Success = false,
-                Message = "Type de document invalide"
+                Message = "Ce type de document n est pas reconnu."
             });
         }
 
@@ -2029,7 +2029,7 @@ public class InvoicesController : ControllerBase
             return BadRequest(new ApiResponse<InvoiceDocumentDto>
             {
                 Success = false,
-                Message = $"Format non supporte ({form.File.ContentType}). Utilisez PDF, PNG, JPG, WEBP, BMP, JFIF, HEIC/HEIF ou AVIF"
+                Message = $"Format non pris en charge ({form.File.ContentType}). Ajoutez un PDF ou une photo."
             });
         }
 
@@ -2356,7 +2356,7 @@ public class InvoicesController : ControllerBase
             return BadRequest(new ApiResponse<InvoiceDocumentDto>
             {
                 Success = false,
-                Message = "Fichier manquant"
+                Message = "Aucun fichier recu."
             });
         }
 
@@ -2365,7 +2365,7 @@ public class InvoicesController : ControllerBase
             return BadRequest(new ApiResponse<InvoiceDocumentDto>
             {
                 Success = false,
-                Message = "Le fichier depasse 50 MB"
+                Message = "Le fichier est trop grand. Maximum 50 Mo."
             });
         }
 
@@ -2374,7 +2374,7 @@ public class InvoicesController : ControllerBase
             return BadRequest(new ApiResponse<InvoiceDocumentDto>
             {
                 Success = false,
-                Message = "Type de document invalide"
+                Message = "Ce type de document n est pas reconnu."
             });
         }
 
@@ -2385,7 +2385,7 @@ public class InvoicesController : ControllerBase
             return BadRequest(new ApiResponse<InvoiceDocumentDto>
             {
                 Success = false,
-                Message = $"Format non supporte ({form.File.ContentType}). Utilisez PDF, PNG, JPG, WEBP, BMP, JFIF, HEIC/HEIF ou AVIF"
+                Message = $"Format non pris en charge ({form.File.ContentType}). Ajoutez un PDF ou une photo."
             });
         }
 

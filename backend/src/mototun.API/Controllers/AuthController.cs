@@ -61,7 +61,7 @@ namespace mototun.API.Controllers
                 return Ok(new
                 {
                     success = true,
-                    message = "Registration successful",
+                    message = "Compte cree avec succes.",
                     data = response
                 });
             }
@@ -87,7 +87,7 @@ namespace mototun.API.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
                     success = false,
-                    message = "Unexpected error during registration."
+                    message = "Une erreur est survenue pendant la creation du compte."
                 });
             }
         }
@@ -111,7 +111,7 @@ namespace mototun.API.Controllers
                 return Ok(new
                 {
                     success = true,
-                    message = "Login successful",
+                    message = "Connexion reussie.",
                     data = response
                 });
             }
@@ -137,7 +137,7 @@ namespace mototun.API.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
                     success = false,
-                    message = "Unexpected error during login."
+                    message = "Une erreur est survenue pendant la connexion."
                 });
             }
         }
@@ -147,7 +147,7 @@ namespace mototun.API.Controllers
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordDto dto, CancellationToken cancellationToken)
         {
-            const string genericMessage = "If the email exists, reset instructions have been sent.";
+            const string genericMessage = "Si cet email existe, vous allez recevoir un lien de reinitialisation.";
 
             var turnstileFailure = await ValidateTurnstileOrBadRequestAsync(dto.TurnstileToken, "forgot-password", cancellationToken);
             if (turnstileFailure is not null)
@@ -204,7 +204,7 @@ namespace mototun.API.Controllers
                 return Ok(new
                 {
                     success = true,
-                    message = "Password updated successfully."
+                    message = "Mot de passe mis a jour."
                 });
             }
             catch (AuthValidationException ex)
@@ -221,7 +221,7 @@ namespace mototun.API.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
                     success = false,
-                    message = "Unexpected error during password reset."
+                    message = "Une erreur est survenue pendant le changement du mot de passe."
                 });
             }
         }
@@ -238,7 +238,7 @@ namespace mototun.API.Controllers
                 return Unauthorized(new
                 {
                     success = false,
-                    message = "Invalid session"
+                    message = "Session invalide."
                 });
             }
 
@@ -249,7 +249,7 @@ namespace mototun.API.Controllers
                 return Unauthorized(new
                 {
                     success = false,
-                    message = "Session expired"
+                    message = "Votre session a expire."
                 });
             }
 
@@ -270,7 +270,7 @@ namespace mototun.API.Controllers
             return Ok(new
             {
                 success = true,
-                message = "Logout successful"
+                message = "Deconnexion reussie."
             });
         }
 
@@ -295,7 +295,7 @@ namespace mototun.API.Controllers
                 return StatusCode(StatusCodes.Status500InternalServerError, new
                 {
                     success = false,
-                    message = "Unexpected error during email check."
+                    message = "Une erreur est survenue pendant la verification de l email."
                 });
             }
         }
@@ -412,7 +412,7 @@ namespace mototun.API.Controllers
             return new
             {
                 success = false,
-                message = "Database connection is unavailable. Verify SQL Server configuration."
+                message = "La base de donnees ne repond pas pour le moment."
             };
         }
     }
