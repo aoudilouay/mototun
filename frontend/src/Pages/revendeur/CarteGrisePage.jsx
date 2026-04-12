@@ -361,7 +361,18 @@ function mapInvoiceToDossier(invoice, locale = 'fr-FR') {
   const requiredDocs = documents.filter((doc) => doc.required);
   const uploadedRequired = requiredDocs.filter((doc) => doc.uploaded).length;
   const missingRequiredDocuments = requiredDocs.filter((doc) => !doc.uploaded);
-  const missingRequiredCount = missingRequiredDocuments.length;
+  const hasAnyUploadFlag = Boolean(
+    invoice?.isCinUploaded
+    || invoice?.isCinFrontUploaded
+    || invoice?.isCinBackUploaded
+    || invoice?.isDeclarationUploaded
+    || invoice?.isFactureUploaded
+    || invoice?.isJustificatifUploaded
+    || invoice?.isCarteGriseUploaded
+  );
+  const isSummaryOnly = !Array.isArray(invoice?.documents) || invoice.documents.length === 0;
+  const summaryWithoutFlags = isSummaryOnly && !hasAnyUploadFlag && Number(invoice?.documentCount || 0) > 0;
+  const missingRequiredCount = summaryWithoutFlags ? 0 : missingRequiredDocuments.length;
   const sentToFournisseurAtRaw = invoice?.sentToFournisseurAt || null;
   const isSentToFournisseur = Boolean(sentToFournisseurAtRaw);
   const boardStateKey = getBoardStateKey({ status, isSentToFournisseur, missingRequiredCount });
@@ -394,7 +405,8 @@ function mapInvoiceToDossier(invoice, locale = 'fr-FR') {
     uploadedCount: uploadedRequired,
     requiredCount: requiredDocs.length,
     missingRequiredCount,
-    missingRequiredDocuments,
+    missingRequiredDocuments: summaryWithoutFlags ? [] : missingRequiredDocuments,
+    isStatusEstimated: summaryWithoutFlags,
     uploadedTotalCount: documents.filter((doc) => doc.uploaded).length,
     documentIssueMessage: invoice?.documentIssueMessage || '',
     documentIssueReasons: normalizeReasonValues(invoice?.documentIssueReasons),
@@ -818,10 +830,10 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
       data.append('documentType', String(uploadTarget.docType));
       data.append('file', preparedUpload.file);
       await api.post(`/Invoices/${uploadTarget.invoiceId}/documents`, data);
-      toast.success(isArabic ? `تم تحديث ${uploadTarget.docLabel}.` : `${uploadTarget.docLabel} mis a jour.`);
+      toast.success(isArabic ? `تم تحديث ${uploadTarget.docLabel}.` : `${uploadTarget.docLabel} ajoute.`);
       await loadDossiers(uploadTarget.invoiceId);
     } catch (error) {
-      toast.error(getApiErrorMessage(error, tr('Impossible de charger ce document.', 'تعذر تحميل هذا المستند.')));
+      toast.error(getApiErrorMessage(error, tr('Impossible d envoyer ce document.', 'تعذر إرسال هذا المستند.')));
     } finally {
       setActiveAction('');
       setUploadTarget(null);
@@ -1044,6 +1056,9 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
   ), [isArabic]);
 
   const getBoardSummary = useCallback((dossier) => {
+    if (dossier.isStatusEstimated) {
+      return tr('Etat a confirmer', 'الحالة قيد التأكيد');
+    }
     switch (dossier.boardStateKey) {
       case 'missing_docs':
         return dossier.missingRequiredCount <= 1
@@ -1063,6 +1078,9 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
   }, [tr]);
 
   const getBoardDetail = useCallback((dossier) => {
+    if (dossier.isStatusEstimated) {
+      return tr('Cliquez pour charger le statut exact.', 'اضغط لتحميل الحالة الدقيقة.');
+    }
     const missingLabels = getMissingDocLabels(dossier);
     if (dossier.boardStateKey === 'missing_docs') {
       const preview = missingLabels.slice(0, 2).join(', ');
@@ -1735,7 +1753,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
                             <button onClick={() => handlePreview(openDossier, doc)} disabled={activeAction === previewKey} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">{activeAction === previewKey ? tr('Ouverture...', 'جار الفتح...') : tr('Voir', 'عرض')}</button>
                             <button onClick={() => handleDownload(openDossier, doc)} disabled={activeAction === downloadKey} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">{activeAction === downloadKey ? tr('Chargement...', 'جار التحميل...') : tr('Telecharger', 'تنزيل')}</button>
                           </>}
-                          <button onClick={() => startUpload(openDossier, doc)} disabled={activeAction === uploadKey} className={`rounded-lg px-3 py-2 text-xs font-bold text-white disabled:opacity-60 ${doc.uploaded ? 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'}`}>{activeAction === uploadKey ? tr('Upload...', 'جار الرفع...') : doc.uploaded ? tr('Remplacer', 'استبدال') : tr('Uploader', 'رفع')}</button>
+                          <button onClick={() => startUpload(openDossier, doc)} disabled={activeAction === uploadKey} className={`rounded-lg px-3 py-2 text-xs font-bold text-white disabled:opacity-60 ${doc.uploaded ? 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700' : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'}`}>{activeAction === uploadKey ? tr('Envoi...', 'جار الإرسال...') : doc.uploaded ? tr('Remplacer', 'استبدال') : tr('Ajouter', 'إضافة')}</button>
                         </div>
                       </div>
                     </article>
