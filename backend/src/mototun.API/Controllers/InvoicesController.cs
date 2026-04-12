@@ -152,7 +152,7 @@ public class InvoicesController : ControllerBase
             .Take(pageSize)
             .ToListAsync();
 
-        // Load documents count only (minimal data)
+        // Load documents count + types only (minimal data for list view)
         var invoiceIds = invoices.Select(i => i.Id).ToList();
         var documentCounts = await _context.ClientPortalDocuments
             .AsNoTracking()
@@ -161,11 +161,41 @@ public class InvoicesController : ControllerBase
             .Select(g => new { InvoiceId = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.InvoiceId, x => x.Count);
 
+        var documentTypes = await _context.ClientPortalDocuments
+            .AsNoTracking()
+            .Where(d => invoiceIds.Contains(d.InvoiceId))
+            .Select(d => new { d.InvoiceId, d.DocumentType })
+            .Distinct()
+            .ToListAsync();
+
+        var documentTypesByInvoice = documentTypes
+            .GroupBy(item => item.InvoiceId)
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(item => item.DocumentType).ToHashSet());
+
         // Enrich invoices with document info (without loading full documents)
         var result = invoices.Select(i =>
         {
             var dto = MapInvoiceDto(i);
             dto.DocumentCount = documentCounts.TryGetValue(i.Id, out var count) ? count : 0;
+
+            if (documentTypesByInvoice.TryGetValue(i.Id, out var types))
+            {
+                var hasLegacyCin = types.Contains(ClientPortalDocumentType.Cin);
+                var hasCinFront = types.Contains(ClientPortalDocumentType.CinFront);
+                var hasCinBack = types.Contains(ClientPortalDocumentType.CinBack);
+                var hasCin = hasLegacyCin || (hasCinFront && hasCinBack);
+
+                dto.IsCinUploaded = hasCin;
+                dto.IsCinFrontUploaded = hasCinFront || hasLegacyCin;
+                dto.IsCinBackUploaded = hasCinBack || hasLegacyCin;
+                dto.IsDeclarationUploaded = types.Contains(ClientPortalDocumentType.DeclarationImpot);
+                dto.IsFactureUploaded = types.Contains(ClientPortalDocumentType.Facture);
+                dto.IsJustificatifUploaded = types.Contains(ClientPortalDocumentType.JustificatifDomicile);
+                dto.IsCarteGriseUploaded = types.Contains(ClientPortalDocumentType.CarteGrise);
+            }
+
             return dto;
         }).ToList();
 
