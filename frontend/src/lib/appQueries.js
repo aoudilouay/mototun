@@ -13,6 +13,7 @@ export const queryKeys = Object.freeze({
   revendeur: Object.freeze({
     invoices: Object.freeze({
       all: ['revendeur', 'invoices'],
+      detail: (invoiceId) => ['revendeur', 'invoices', 'detail', invoiceId],
     }),
     fournisseursDirectory: Object.freeze({
       all: ['revendeur', 'fournisseurs-directory'],
@@ -90,6 +91,12 @@ async function fetchRevendeurInvoices() {
   return extractApiArray(response);
 }
 
+async function fetchRevendeurInvoiceDetails(invoiceId) {
+  if (!Number.isInteger(invoiceId) || invoiceId <= 0) return null;
+  const response = await api.get(`/Invoices/${invoiceId}`);
+  return extractApiObject(response);
+}
+
 async function fetchRevendeurFournisseursDirectory() {
   const response = await api.get('/partnership-requests/directory/fournisseurs');
   return extractApiArray(response);
@@ -138,11 +145,22 @@ export function motorcyclesQueryOptions() {
   });
 }
 
-export function revendeurInvoicesQueryOptions() {
+export function revendeurInvoicesQueryOptions(page = 1) {
   return queryOptions({
-    queryKey: queryKeys.revendeur.invoices.all,
-    queryFn: fetchRevendeurInvoices,
+    queryKey: [...queryKeys.revendeur.invoices.all, page],
+    queryFn: () => fetchRevendeurInvoices(page),
     staleTime: 45 * 1000,
+    gcTime: 15 * MINUTE,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function revendeurInvoiceDetailsQueryOptions(invoiceId) {
+  return queryOptions({
+    queryKey: queryKeys.revendeur.invoices.detail(invoiceId),
+    queryFn: () => fetchRevendeurInvoiceDetails(invoiceId),
+    enabled: Number.isInteger(invoiceId) && invoiceId > 0,
+    staleTime: 30 * 1000,
     gcTime: 15 * MINUTE,
   });
 }

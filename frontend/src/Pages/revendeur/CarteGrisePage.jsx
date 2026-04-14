@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '../../api/axios';
 import partnershipService, { PartnershipStatus } from '../../services/partnershipService';
 import { useI18n } from '../../context/I18nContext';
+import { revendeurInvoiceDetailsQueryOptions, revendeurInvoicesQueryOptions } from '../../lib/appQueries';
 import { resolveAvatarUrl } from '../../utils/avatar';
 import { optimizeDocumentImageUpload } from '../../utils/imageTransform';
 import DocumentPreviewModal from '../../components/documents/DocumentPreviewModal';
@@ -105,6 +107,27 @@ const VALIDATION_REASONS = [
   { value: 5, label: 'Document expire', labelAr: 'وثيقة منتهية الصلاحية' },
   { value: 6, label: 'Document incomplet', labelAr: 'وثيقة غير مكتملة' }
 ];
+
+function DossierCardSkeleton() {
+  return (
+    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="h-12 w-12 animate-pulse rounded-2xl bg-slate-200/80" />
+        <div className="h-5 w-24 animate-pulse rounded-full bg-slate-200/80" />
+      </div>
+      <div className="mt-4 space-y-2">
+        <div className="h-4 w-32 animate-pulse rounded-full bg-slate-200/80" />
+        <div className="h-3 w-24 animate-pulse rounded-full bg-slate-200/80" />
+        <div className="h-3 w-40 animate-pulse rounded-full bg-slate-200/80" />
+      </div>
+      <div className="mt-4 h-10 animate-pulse rounded-xl bg-slate-200/70" />
+      <div className="mt-3 flex gap-2">
+        <div className="h-9 w-20 animate-pulse rounded-xl bg-slate-200/70" />
+        <div className="h-9 w-20 animate-pulse rounded-xl bg-slate-200/70" />
+      </div>
+    </div>
+  );
+}
 
 function normalizeReasonValues(values) {
   return Array.from(new Set(
@@ -430,6 +453,9 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
   const isArabic = language === 'ar';
   const locale = isArabic ? 'ar-TN' : 'fr-FR';
   const tr = useCallback((fr, ar) => (isArabic ? ar : fr), [isArabic]);
+  const queryClient = useQueryClient();
+  const invoicesQueryOptions = revendeurInvoicesQueryOptions();
+  const invoicesQueryKey = invoicesQueryOptions.queryKey;
 
   const [dossiers, setDossiers] = useState([]);
   const [viewMode, setViewMode] = useState(initialViewMode === 'archive' ? 'archive' : 'active');
@@ -465,6 +491,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
   const [validationReasonsDraft, setValidationReasonsDraft] = useState([]);
   const [validationChecklistDraft, setValidationChecklistDraft] = useState('');
   const fileInputRef = useRef(null);
+  const deferredSearch = useDeferredValue(search);
 
   const closePreview = useCallback(() => {
     setPreview(null);
@@ -538,8 +565,14 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
   const loadDossiers = useCallback(async (keepOpenInvoiceId = null) => {
     try {
       setLoading(true);
-      const response = await api.get('/Invoices');
-      const next = extractApiData(response).map((invoice) => mapInvoiceToDossier(invoice, locale));
+      const cached = queryClient.getQueryData(invoicesQueryKey);
+      if (cached) {
+        const cachedList = Array.isArray(cached) ? cached : [];
+        setDossiers(cachedList.map((invoice) => mapInvoiceToDossier(invoice, locale)));
+      }
+
+      const data = await queryClient.ensureQueryData(invoicesQueryOptions);
+      const next = (Array.isArray(data) ? data : []).map((invoice) => mapInvoiceToDossier(invoice, locale));
       setDossiers(next);
       if (keepOpenInvoiceId) {
         const summary = next.find((item) => item.invoiceId === keepOpenInvoiceId) || null;
@@ -551,13 +584,12 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
         setOpenDossier(summary);
 
         try {
-          const detailResponse = await api.get(`/Invoices/${keepOpenInvoiceId}`);
-          const detail = extractSingleApiData(detailResponse);
-          if (!detail) {
-            return;
-          }
+          const detailQueryOptions = revendeurInvoiceDetailsQueryOptions(keepOpenInvoiceId);
+          const cachedDetail = queryClient.getQueryData(detailQueryOptions.queryKey);
+          const detailData = cachedDetail ?? await queryClient.ensureQueryData(detailQueryOptions);
+          if (!detailData) return;
 
-          const hydrated = mapInvoiceToDossier(detail, locale);
+          const hydrated = mapInvoiceToDossier(detailData, locale);
           setDossiers((current) => current.map((item) => (
             item.invoiceId === keepOpenInvoiceId ? { ...item, ...hydrated } : item
           )));
@@ -573,7 +605,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     } finally {
       setLoading(false);
     }
-  }, [locale, tr]);
+  }, [invoicesQueryKey, invoicesQueryOptions, locale, queryClient, tr]);
 
   const openDossierWithDetails = useCallback(async (dossier) => {
     setOpenDossier(dossier);
@@ -583,23 +615,32 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     }
 
     try {
-      const response = await api.get(`/Invoices/${dossier.invoiceId}`);
-      const detail = extractSingleApiData(response);
-      if (!detail) {
-        return;
+      const detailQueryOptions = revendeurInvoiceDetailsQueryOptions(dossier.invoiceId);
+      const cachedDetail = queryClient.getQueryData(detailQueryOptions.queryKey);
+      const applyDetail = (detailData) => {
+        if (!detailData) return;
+        const hydrated = mapInvoiceToDossier(detailData, locale);
+        setDossiers((current) => current.map((item) => (
+          item.invoiceId === dossier.invoiceId ? { ...item, ...hydrated } : item
+        )));
+        setOpenDossier((current) => (
+          current?.invoiceId === dossier.invoiceId ? hydrated : current
+        ));
+      };
+
+      if (cachedDetail) {
+        applyDetail(cachedDetail);
       }
 
-      const hydrated = mapInvoiceToDossier(detail, locale);
-      setDossiers((current) => current.map((item) => (
-        item.invoiceId === dossier.invoiceId ? { ...item, ...hydrated } : item
-      )));
-      setOpenDossier((current) => (
-        current?.invoiceId === dossier.invoiceId ? hydrated : current
-      ));
+      const detailData = cachedDetail ?? await queryClient.ensureQueryData(detailQueryOptions);
+      if (!detailData) return;
+      if (!cachedDetail) {
+        applyDetail(detailData);
+      }
     } catch {
       // Keep the summary state visible if the detail fetch fails.
     }
-  }, [locale]);
+  }, [locale, queryClient]);
 
   const loadConnectedFournisseurs = useCallback(async () => {
     try {
@@ -625,46 +666,53 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
       : dossier.status !== 'delivered'
   ));
 
-  const filtered = visibleDossiers.filter((dossier) => {
-    const q = search.trim().toLowerCase();
-    const matchesSearch = q.length === 0
-      || dossier.id.toLowerCase().includes(q)
-      || dossier.clientName.toLowerCase().includes(q)
-      || dossier.bikeName.toLowerCase().includes(q)
-      || dossier.chassis.toLowerCase().includes(q);
-    const matchesBoard = boardFilter === 'all'
-      || ((boardFilter === 'needs_action' || boardFilter === 'pending' || boardFilter === 'docs_received')
-        && (dossier.boardStateKey === 'missing_docs' || dossier.boardStateKey === 'ready_to_send'))
-      || ((boardFilter === 'in_progress' || boardFilter === 'depot_antt' || boardFilter === 'rejected')
-        && (dossier.boardStateKey === 'sent' || dossier.boardStateKey === 'processing'))
-      || ((boardFilter === 'completed' || boardFilter === 'delivered')
-        && dossier.boardStateKey === 'completed');
-    const matchesCompany = companyFilter === 'all' || dossier.company === companyFilter;
-    return matchesSearch && matchesBoard && matchesCompany;
-  }).sort((a, b) => {
-    if (sortBy === 'action_priority') {
-      if (a.boardStatePriority !== b.boardStatePriority) {
-        return a.boardStatePriority - b.boardStatePriority;
-      }
-      if (a.boardStateKey === 'missing_docs' && b.boardStateKey === 'missing_docs' && a.missingRequiredCount !== b.missingRequiredCount) {
-        return b.missingRequiredCount - a.missingRequiredCount;
-      }
-      return new Date(b.updatedAtRaw || 0).getTime() - new Date(a.updatedAtRaw || 0).getTime();
-    }
-    if (sortBy === 'created_desc') {
-      return new Date(b.createdAtRaw || 0).getTime() - new Date(a.createdAtRaw || 0).getTime();
-    }
-    if (sortBy === 'progress_desc') {
-      return b.progress - a.progress;
-    }
-    if (sortBy === 'client_asc') {
-      return a.clientName.localeCompare(b.clientName);
-    }
-    return new Date(b.updatedAtRaw || 0).getTime() - new Date(a.updatedAtRaw || 0).getTime();
-  });
+  const filtered = useMemo(() => {
+    const q = deferredSearch.trim().toLowerCase();
+    return visibleDossiers
+      .filter((dossier) => {
+        const matchesSearch = q.length === 0
+          || dossier.id.toLowerCase().includes(q)
+          || dossier.clientName.toLowerCase().includes(q)
+          || dossier.bikeName.toLowerCase().includes(q)
+          || dossier.chassis.toLowerCase().includes(q);
+        const matchesBoard = boardFilter === 'all'
+          || ((boardFilter === 'needs_action' || boardFilter === 'pending' || boardFilter === 'docs_received')
+            && (dossier.boardStateKey === 'missing_docs' || dossier.boardStateKey === 'ready_to_send'))
+          || ((boardFilter === 'in_progress' || boardFilter === 'depot_antt' || boardFilter === 'rejected')
+            && (dossier.boardStateKey === 'sent' || dossier.boardStateKey === 'processing'))
+          || ((boardFilter === 'completed' || boardFilter === 'delivered')
+            && dossier.boardStateKey === 'completed');
+        const matchesCompany = companyFilter === 'all' || dossier.company === companyFilter;
+        return matchesSearch && matchesBoard && matchesCompany;
+      })
+      .sort((a, b) => {
+        if (sortBy === 'action_priority') {
+          if (a.boardStatePriority !== b.boardStatePriority) {
+            return a.boardStatePriority - b.boardStatePriority;
+          }
+          if (a.boardStateKey === 'missing_docs' && b.boardStateKey === 'missing_docs' && a.missingRequiredCount !== b.missingRequiredCount) {
+            return b.missingRequiredCount - a.missingRequiredCount;
+          }
+          return new Date(b.updatedAtRaw || 0).getTime() - new Date(a.updatedAtRaw || 0).getTime();
+        }
+        if (sortBy === 'created_desc') {
+          return new Date(b.createdAtRaw || 0).getTime() - new Date(a.createdAtRaw || 0).getTime();
+        }
+        if (sortBy === 'progress_desc') {
+          return b.progress - a.progress;
+        }
+        if (sortBy === 'client_asc') {
+          return a.clientName.localeCompare(b.clientName);
+        }
+        return new Date(b.updatedAtRaw || 0).getTime() - new Date(a.updatedAtRaw || 0).getTime();
+      });
+  }, [boardFilter, companyFilter, deferredSearch, sortBy, visibleDossiers]);
 
-  const companies = ['all', ...Array.from(new Set(visibleDossiers.map((item) => item.company).filter(Boolean)))];
-  const stats = {
+  const companies = useMemo(
+    () => ['all', ...Array.from(new Set(visibleDossiers.map((item) => item.company).filter(Boolean)))],
+    [visibleDossiers]
+  );
+  const stats = useMemo(() => ({
     total: dossiers.length,
     active: dossiers.filter((d) => d.status !== 'delivered').length,
     archived: dossiers.filter((d) => d.status === 'delivered').length,
@@ -674,7 +722,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     readyToSend: dossiers.filter((d) => d.boardStateKey === 'ready_to_send').length,
     inProgress: dossiers.filter((d) => d.boardStateKey === 'sent' || d.boardStateKey === 'processing').length,
     completed: dossiers.filter((d) => d.boardStateKey === 'completed').length
-  };
+  }), [dossiers]);
 
   const resolveDocumentAccessUrl = async (invoiceId, doc) => {
     const fallbackUrl = buildApiUrl(`/Invoices/${invoiceId}/documents/${doc.documentId}/inline`);
@@ -1395,13 +1443,17 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600" />
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="py-12 text-center">
+        <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+          {loading ? (
+            <div className="p-4 sm:p-6">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <DossierCardSkeleton key={`dossier-skeleton-${index}`} />
+                ))}
+              </div>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="py-12 text-center">
             <svg className="mx-auto mb-4 h-16 w-16 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"

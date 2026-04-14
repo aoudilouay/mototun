@@ -1,6 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '../../api/axios';
+import { fournisseurDossiersQueryOptions } from '../../lib/appQueries';
 import { resolveAvatarUrl } from '../../utils/avatar';
 import { optimizeDocumentImageUpload } from '../../utils/imageTransform';
 import DocumentPreviewModal from '../../components/documents/DocumentPreviewModal';
@@ -347,6 +349,10 @@ function mapInvoiceToDossier(invoice) {
 }
 
 function FournisseurCarteGrisePage() {
+  const queryClient = useQueryClient();
+  const dossiersQueryOptions = fournisseurDossiersQueryOptions();
+  const dossiersQueryKey = dossiersQueryOptions.queryKey;
+
   const [dossiers, setDossiers] = useState([]);
   const [viewMode, setViewMode] = useState('active');
   const [search, setSearch] = useState('');
@@ -365,6 +371,8 @@ function FournisseurCarteGrisePage() {
   const [validationReasonsDraft, setValidationReasonsDraft] = useState([]);
   const [validationChecklistDraft, setValidationChecklistDraft] = useState('');
   const fileInputRef = useRef(null);
+  const deferredSearch = useDeferredValue(search);
+  const deferredRevendeurSearch = useDeferredValue(revendeurSearch);
 
   const closePreview = useCallback(() => {
     setPreview(null);
@@ -382,8 +390,14 @@ function FournisseurCarteGrisePage() {
   const loadDossiers = useCallback(async (keepOpenInvoiceId = null) => {
     try {
       setLoading(true);
-      const response = await api.get('/Invoices/fournisseur/carte-grise');
-      const next = extractApiData(response).map(mapInvoiceToDossier);
+      const cached = queryClient.getQueryData(dossiersQueryKey);
+      if (cached) {
+        const cachedList = Array.isArray(cached) ? cached : [];
+        setDossiers(cachedList.map(mapInvoiceToDossier));
+      }
+
+      const data = await queryClient.ensureQueryData(dossiersQueryOptions);
+      const next = (Array.isArray(data) ? data : []).map(mapInvoiceToDossier);
       setDossiers(next);
       if (keepOpenInvoiceId) {
         setOpenDossier(next.find((item) => item.invoiceId === keepOpenInvoiceId) || null);
@@ -393,7 +407,7 @@ function FournisseurCarteGrisePage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dossiersQueryKey, dossiersQueryOptions, queryClient]);
 
   useEffect(() => {
     loadDossiers();
@@ -434,7 +448,7 @@ function FournisseurCarteGrisePage() {
   const filteredDossiers = useMemo(() => (
     dossiers
       .filter((dossier) => {
-        const q = search.trim().toLowerCase();
+        const q = deferredSearch.trim().toLowerCase();
         const matchesSearch = q.length === 0
           || dossier.id.toLowerCase().includes(q)
           || dossier.clientName.toLowerCase().includes(q)
@@ -449,7 +463,7 @@ function FournisseurCarteGrisePage() {
         a.boardStatePriority - b.boardStatePriority
         || new Date(b.updatedAtRaw || 0).getTime() - new Date(a.updatedAtRaw || 0).getTime()
       ))
-  ), [dossiers, search, statusFilter]);
+  ), [deferredSearch, dossiers, statusFilter]);
 
   const revendeurGroups = useMemo(() => {
     const groupsMap = new Map();
@@ -506,13 +520,13 @@ function FournisseurCarteGrisePage() {
   }, [filteredDossiers]);
 
   const filteredRevendeurGroups = useMemo(() => {
-    const q = revendeurSearch.trim().toLowerCase();
+    const q = deferredRevendeurSearch.trim().toLowerCase();
     if (!q) return revendeurGroups;
     return revendeurGroups.filter((group) => (
       group.revendeurName.toLowerCase().includes(q)
       || String(group.revendeurId || '').includes(q)
     ));
-  }, [revendeurGroups, revendeurSearch]);
+  }, [deferredRevendeurSearch, revendeurGroups]);
 
   useEffect(() => {
     if (filteredRevendeurGroups.length === 0) {
@@ -750,10 +764,10 @@ function FournisseurCarteGrisePage() {
       data.append('documentType', String(uploadTarget.docType));
       data.append('file', preparedUpload.file);
       await api.post(`/Invoices/fournisseur/carte-grise/${uploadTarget.invoiceId}/documents`, data);
-      toast.success(`${uploadTarget.docLabel} mis a jour.`);
+      toast.success(`${uploadTarget.docLabel} ajoute.`);
       await loadDossiers(uploadTarget.invoiceId);
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Impossible de charger ce document.'));
+      toast.error(getApiErrorMessage(error, 'Impossible d envoyer ce document.'));
     } finally {
       setActiveAction('');
       setUploadTarget(null);
@@ -1528,7 +1542,7 @@ function FournisseurCarteGrisePage() {
                             disabled={activeAction === uploadKey}
                             className={`rounded-lg px-3 py-2 text-xs font-bold text-white disabled:opacity-60 ${doc.uploaded ? 'bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700' : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700'}`}
                           >
-                            {activeAction === uploadKey ? 'Upload...' : doc.uploaded ? 'Remplacer' : 'Uploader'}
+                            {activeAction === uploadKey ? 'Envoi...' : doc.uploaded ? 'Remplacer' : 'Ajouter'}
                           </button>
                         </div>
                       </div>
