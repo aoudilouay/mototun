@@ -95,10 +95,6 @@ function parseChecklistDraft(value) {
   )).slice(0, 20);
 }
 
-function extractApiData(response) {
-  return Array.isArray(response?.data?.data) ? response.data.data : [];
-}
-
 function getApiErrorMessage(error, fallbackMessage) {
   const apiMessage = error?.response?.data?.message || error?.response?.data?.Message;
   if (apiMessage) return apiMessage;

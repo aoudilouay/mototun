@@ -4,12 +4,36 @@ import authService from '../services/authService';
 
 const AuthContext = createContext(null);
 
+function isProtectedPathname(pathname) {
+  return /^\/(revendeur|fournisseur|admin)(\/|$)/.test(String(pathname || ''));
+}
+
+function getCurrentPathname() {
+  if (typeof window === 'undefined') {
+    return '/';
+  }
+
+  return window.location.pathname || '/';
+}
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => authService.getCurrentUser());
-  const [loading, setLoading] = useState(() => !authService.hasStoredSession());
+  const [loading, setLoading] = useState(() => {
+    const hasStoredSession = authService.hasStoredSession();
+    return hasStoredSession || isProtectedPathname(getCurrentPathname());
+  });
 
   useEffect(() => {
     let isMounted = true;
+
+    const hasStoredSession = authService.hasStoredSession();
+    const isProtectedPath = isProtectedPathname(getCurrentPathname());
+
+    if (!hasStoredSession && !isProtectedPath) {
+      return () => {
+        isMounted = false;
+      };
+    }
 
     const bootstrapSession = async () => {
       const currentUser = await authService.fetchCurrentUser();

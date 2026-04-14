@@ -8,16 +8,6 @@ import { AuthProvider } from './context/AuthContext';
 import { I18nProvider, useI18n } from './context/I18nContext';
 import { scheduleIdleTask } from './lib/browserScheduling';
 import { SpeedInsights } from '@vercel/speed-insights/react';
-import {
-  loadCarteGrisePage,
-  loadClientsPage,
-  loadFournisseurCarteGrisePage,
-  loadFournisseurDashboardPage,
-  loadInvoicesPage,
-  loadMotorcyclesPage,
-  loadRevendeurDashboardPage,
-  loadRevendeursPage,
-} from './lib/routePreloaders';
 
 // Lazy load Analytics for better initial paint
 const Analytics = lazy(() => import('@vercel/analytics/react').then(mod => ({ default: mod.Analytics })));
@@ -33,21 +23,21 @@ const PrivacyPolicyPage = lazy(() => import('./Pages/PrivacyPolicyPage'));
 const SupportCenterPage = lazy(() => import('./Pages/SupportCenterPage'));
 
 const RevendeurLayout = lazy(() => import('./components/RevendeurLayout'));
-const DashboardPage = lazy(loadRevendeurDashboardPage);
+const DashboardPage = lazy(() => import('./Pages/revendeur/DashboardPage'));
 const RevendeurStatsPage = lazy(() => import('./Pages/revendeur/StatsPage'));
 const MessagingPage = lazy(() => import('./Pages/revendeur/MessagingPage'));
 const RevendeurProfilePage = lazy(() => import('./Pages/revendeur/ProfilePage'));
-const ClientsPage = lazy(loadClientsPage);
+const ClientsPage = lazy(() => import('./Pages/revendeur/ClientsPage'));
 const FournisseursPage = lazy(() => import('./Pages/revendeur/FournisseursPage'));
-const MotorcyclesPage = lazy(loadMotorcyclesPage);
-const CarteGrisePage = lazy(loadCarteGrisePage);
-const InvoicesPage = lazy(loadInvoicesPage);
+const MotorcyclesPage = lazy(() => import('./Pages/revendeur/MotorcyclesPage'));
+const CarteGrisePage = lazy(() => import('./Pages/revendeur/CarteGrisePage'));
+const InvoicesPage = lazy(() => import('./Pages/revendeur/InvoicesPage'));
 
 const FournisseurLayout = lazy(() => import('./components/FournisseurLayout'));
-const FournisseurDashboardPage = lazy(loadFournisseurDashboardPage);
+const FournisseurDashboardPage = lazy(() => import('./Pages/fournisseur/FournisseurDashboardPage'));
 const FournisseurStatsPage = lazy(() => import('./Pages/fournisseur/StatsPage'));
-const RevendeursPage = lazy(loadRevendeursPage);
-const FournisseurCarteGrisePage = lazy(loadFournisseurCarteGrisePage);
+const RevendeursPage = lazy(() => import('./Pages/fournisseur/RevendeursPage'));
+const FournisseurCarteGrisePage = lazy(() => import('./Pages/fournisseur/FournisseurCarteGrisePage'));
 const FournisseurMessagingPage = lazy(() => import('./Pages/fournisseur/MessagingPage'));
 const FournisseurProfilePage = lazy(() => import('./Pages/fournisseur/ProfilePage'));
 

@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import { repairMojibake } from '../utils/textEncoding';
 
 const STORAGE_KEY = 'mototun_language';
+const ENABLE_DOM_AUTO_TRANSLATION = String(import.meta.env.VITE_ENABLE_DOM_AUTO_TRANSLATION || '').trim().toLowerCase() === 'true';
 
 const AUTO_TRANSLATION_KEYS = {
   Dashboard: 'nav.dashboard',
@@ -590,7 +591,7 @@ const messages = {
     login: {
       title: 'Bon retour !',
       subtitle: 'Connectez-vous a votre espace professionnel',
-      unauthorized: 'Acces non autorise',
+      unauthorized: 'Acces reserve a votre espace',
       email: 'Email',
       password: 'Mot de passe',
       remember: 'Se souvenir de moi',
@@ -602,19 +603,19 @@ const messages = {
       createAccount: 'Creer un compte'
     },
     register: {
-      title: 'Creer votre compte professionnel',
-      subtitle: 'Commencez a digitaliser votre business en 5 minutes',
+      title: 'Creer votre compte',
+      subtitle: 'Commencez en quelques minutes, depuis votre telephone ou votre ordinateur',
       step1: 'Informations',
       step2: 'Securite',
       roleLabel: 'Je suis un',
       revendeur: 'Revendeur',
       fournisseur: 'Fournisseur',
       revendeurHint: 'Je vends des motos',
-      fournisseurHint: 'CCT, Zimota, Sanya...',
+      fournisseurHint: 'Je fournis des motos aux revendeurs',
       fullName: 'Nom du responsable',
-      businessName: 'Nom du business',
+      businessName: 'Nom du magasin',
       companyName: 'Nom de la societe',
-      taxId: 'Matricule fiscale',
+      taxId: 'Matricule fiscal',
       phone: 'Telephone',
       address: 'Adresse',
       city: 'Ville',
@@ -622,7 +623,7 @@ const messages = {
       continue: 'Continuer',
       password: 'Mot de passe',
       confirmPassword: 'Confirmer le mot de passe',
-      passwordHint: 'Utilisez au moins 10 caracteres avec majuscule, minuscule, chiffre et symbole',
+      passwordHint: 'Au moins 10 caracteres avec une lettre, un chiffre et un symbole',
       confirmHint: 'Retapez votre mot de passe',
       acceptTerms: "J'accepte les", 
       terms: "Conditions d'utilisation",
@@ -630,16 +631,16 @@ const messages = {
       back: 'Retour',
       create: 'Creer mon compte',
       creating: 'Creation...',
-      featuresTitle: 'Ce que vous obtenez :',
-      feature1: 'Essai gratuit 14 jours',
+      featuresTitle: 'Ce que vous gagnez :',
+      feature1: '14 jours d essai',
       feature2: 'Sans carte bancaire',
       feature3: 'Support 7j/7',
       feature4: 'Formation incluse',
       haveAccount: 'Vous avez deja un compte ?',
       signIn: 'Se connecter',
       errPasswordMatch: 'Les mots de passe ne correspondent pas',
-      errPasswordLength: 'Le mot de passe doit contenir au moins 10 caracteres',
-      errTerms: 'Vous devez accepter les conditions d\'utilisation'
+      errPasswordLength: 'Ajoutez au moins 10 caracteres',
+      errTerms: 'Vous devez accepter les conditions'
     }
   },
   ar: {
@@ -1178,6 +1179,10 @@ export function I18nProvider({ children }) {
   }, [language]);
 
   useEffect(() => {
+    if (!ENABLE_DOM_AUTO_TRANSLATION || language !== 'ar') {
+      return undefined;
+    }
+
     if (typeof document === 'undefined') {
       return undefined;
     }
@@ -1349,4 +1354,3 @@ export function useI18n() {
   }
   return context;
 }
-

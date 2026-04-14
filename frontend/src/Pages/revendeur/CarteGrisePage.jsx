@@ -89,6 +89,8 @@ const SORT_OPTIONS = [
   { value: 'client_asc', label: 'Client A-Z', labelAr: 'الحريف أ-ي' }
 ];
 
+const DOSSIER_PAGE_SIZE_OPTIONS = [12, 24, 48];
+
 const CARTE_GRISE_STATUS_TO_ENUM = {
   pending: 0,
   docs_received: 1,
@@ -144,15 +146,6 @@ function parseChecklistDraft(value) {
       .map((line) => line.trim())
       .filter(Boolean)
   )).slice(0, 20);
-}
-
-function extractApiData(response) {
-  return Array.isArray(response?.data?.data) ? response.data.data : [];
-}
-
-function extractSingleApiData(response) {
-  const payload = response?.data?.data;
-  return payload && typeof payload === 'object' && !Array.isArray(payload) ? payload : null;
 }
 
 function getApiErrorMessage(error, fallbackMessage) {
@@ -463,6 +456,8 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
   const [boardFilter, setBoardFilter] = useState('all');
   const [companyFilter, setCompanyFilter] = useState('all');
   const [sortBy, setSortBy] = useState('action_priority');
+  const [dossierPageSize, setDossierPageSize] = useState(12);
+  const [dossierPage, setDossierPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [openDossier, setOpenDossier] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -660,11 +655,13 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     loadConnectedFournisseurs();
   }, [loadConnectedFournisseurs]);
 
-  const visibleDossiers = dossiers.filter((dossier) => (
-    viewMode === 'archive'
-      ? dossier.status === 'delivered'
-      : dossier.status !== 'delivered'
-  ));
+  const visibleDossiers = useMemo(() => (
+    dossiers.filter((dossier) => (
+      viewMode === 'archive'
+        ? dossier.status === 'delivered'
+        : dossier.status !== 'delivered'
+    ))
+  ), [dossiers, viewMode]);
 
   const filtered = useMemo(() => {
     const q = deferredSearch.trim().toLowerCase();
@@ -712,17 +709,62 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     () => ['all', ...Array.from(new Set(visibleDossiers.map((item) => item.company).filter(Boolean)))],
     [visibleDossiers]
   );
-  const stats = useMemo(() => ({
-    total: dossiers.length,
-    active: dossiers.filter((d) => d.status !== 'delivered').length,
-    archived: dossiers.filter((d) => d.status === 'delivered').length,
-    sentToFournisseur: dossiers.filter((d) => d.isSentToFournisseur).length,
-    needsAction: dossiers.filter((d) => d.boardStateKey === 'missing_docs' || d.boardStateKey === 'ready_to_send').length,
-    missingDocs: dossiers.filter((d) => d.boardStateKey === 'missing_docs').length,
-    readyToSend: dossiers.filter((d) => d.boardStateKey === 'ready_to_send').length,
-    inProgress: dossiers.filter((d) => d.boardStateKey === 'sent' || d.boardStateKey === 'processing').length,
-    completed: dossiers.filter((d) => d.boardStateKey === 'completed').length
+  const stats = useMemo(() => dossiers.reduce((accumulator, dossier) => {
+    accumulator.total += 1;
+
+    if (dossier.status === 'delivered') {
+      accumulator.archived += 1;
+    } else {
+      accumulator.active += 1;
+    }
+
+    if (dossier.isSentToFournisseur) {
+      accumulator.sentToFournisseur += 1;
+    }
+
+    if (dossier.boardStateKey === 'missing_docs') {
+      accumulator.needsAction += 1;
+      accumulator.missingDocs += 1;
+    } else if (dossier.boardStateKey === 'ready_to_send') {
+      accumulator.needsAction += 1;
+      accumulator.readyToSend += 1;
+    } else if (dossier.boardStateKey === 'sent' || dossier.boardStateKey === 'processing') {
+      accumulator.inProgress += 1;
+    } else if (dossier.boardStateKey === 'completed') {
+      accumulator.completed += 1;
+    }
+
+    return accumulator;
+  }, {
+    total: 0,
+    active: 0,
+    archived: 0,
+    sentToFournisseur: 0,
+    needsAction: 0,
+    missingDocs: 0,
+    readyToSend: 0,
+    inProgress: 0,
+    completed: 0
   }), [dossiers]);
+
+  const dossierTotalPages = Math.max(1, Math.ceil(filtered.length / dossierPageSize));
+  const currentDossierPage = Math.min(dossierPage, dossierTotalPages);
+  const dossierPageStart = filtered.length === 0 ? 0 : (currentDossierPage - 1) * dossierPageSize + 1;
+  const dossierPageEnd = Math.min(currentDossierPage * dossierPageSize, filtered.length);
+  const pagedDossiers = useMemo(
+    () => filtered.slice((currentDossierPage - 1) * dossierPageSize, currentDossierPage * dossierPageSize),
+    [currentDossierPage, dossierPageSize, filtered]
+  );
+
+  useEffect(() => {
+    setDossierPage(1);
+  }, [viewMode, boardFilter, companyFilter, sortBy, deferredSearch, dossierPageSize]);
+
+  useEffect(() => {
+    if (dossierPage > dossierTotalPages) {
+      setDossierPage(dossierTotalPages);
+    }
+  }, [dossierPage, dossierTotalPages]);
 
   const resolveDocumentAccessUrl = async (invoiceId, doc) => {
     const fallbackUrl = buildApiUrl(`/Invoices/${invoiceId}/documents/${doc.documentId}/inline`);
@@ -1475,11 +1517,28 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
           <>
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 sm:px-6 py-4">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-600">{tr('Dossiers Carte Grise', 'ملفات البطاقة الرمادية')}</p>
-              <p className="text-xs font-medium text-slate-500">{isArabic ? `${filtered.length} نتيجة` : `${filtered.length} resultat(s)`}</p>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <select
+                  value={dossierPageSize}
+                  onChange={(event) => setDossierPageSize(Number(event.target.value) || 12)}
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700"
+                >
+                  {DOSSIER_PAGE_SIZE_OPTIONS.map((option) => (
+                    <option key={`cg-page-size-${option}`} value={option}>
+                      {isArabic ? `${option} بطاقة` : `${option} cartes`}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs font-medium text-slate-500">
+                  {isArabic
+                    ? `${dossierPageStart}-${dossierPageEnd} من ${filtered.length}`
+                    : `${dossierPageStart}-${dossierPageEnd} sur ${filtered.length}`}
+                </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 p-4 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((dossier) => {
+              {pagedDossiers.map((dossier) => {
                 const status = STATUS_META[dossier.status] || STATUS_META.pending;
                 const boardMeta = BOARD_STATE_META[dossier.boardStateKey] || BOARD_STATE_META.missing_docs;
                 const primaryAction = getPrimaryAction(dossier);
@@ -1588,11 +1647,34 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
               })}
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-200 px-4 sm:px-6 py-4">
+            <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <p className="text-sm text-slate-600">
                 {tr('Affichage de', 'عرض')} <span className="font-semibold">{filtered.length}</span> {tr('sur', 'من أصل')}{' '}
                 <span className="font-semibold">{visibleDossiers.length}</span> {tr('dossiers', 'ملف')}
               </p>
+              {filtered.length > dossierPageSize && (
+                <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <span className="text-xs text-slate-500">
+                    {isArabic
+                      ? `الصفحة ${currentDossierPage} من ${dossierTotalPages}`
+                      : `Page ${currentDossierPage} sur ${dossierTotalPages}`}
+                  </span>
+                  <button
+                    onClick={() => setDossierPage((current) => Math.max(1, current - 1))}
+                    disabled={currentDossierPage <= 1}
+                    className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    {tr('Precedent', 'السابق')}
+                  </button>
+                  <button
+                    onClick={() => setDossierPage((current) => Math.min(dossierTotalPages, current + 1))}
+                    disabled={currentDossierPage >= dossierTotalPages}
+                    className="rounded-xl border border-slate-900 bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-55"
+                  >
+                    {tr('Suivant', 'التالي')}
+                  </button>
+                </div>
+              )}
             </div>
           </>
         )}
