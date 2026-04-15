@@ -447,7 +447,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
   const locale = isArabic ? 'ar-TN' : 'fr-FR';
   const tr = useCallback((fr, ar) => (isArabic ? ar : fr), [isArabic]);
   const queryClient = useQueryClient();
-  const invoicesQueryOptions = revendeurInvoicesQueryOptions();
+  const invoicesQueryOptions = useMemo(() => revendeurInvoicesQueryOptions(), []);
   const invoicesQueryKey = invoicesQueryOptions.queryKey;
 
   const [dossiers, setDossiers] = useState([]);
@@ -478,6 +478,8 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     alreadySent: false
   });
   const [connectedFournisseurs, setConnectedFournisseurs] = useState([]);
+  const [hasLoadedFournisseurs, setHasLoadedFournisseurs] = useState(false);
+  const [isLoadingFournisseurs, setIsLoadingFournisseurs] = useState(false);
   const [activeAction, setActiveAction] = useState('');
   const [uploadTarget, setUploadTarget] = useState(null);
   const [detailsModal, setDetailsModal] = useState({ open: false, type: '' });
@@ -639,21 +641,24 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
 
   const loadConnectedFournisseurs = useCallback(async () => {
     try {
+      setIsLoadingFournisseurs(true);
       const data = await partnershipService.getFournisseurDirectory();
       const accepted = (Array.isArray(data) ? data : []).filter((item) => item.status === PartnershipStatus.Accepted);
       setConnectedFournisseurs(accepted);
+      setHasLoadedFournisseurs(true);
+      return accepted;
     } catch {
       setConnectedFournisseurs([]);
+      setHasLoadedFournisseurs(true);
+      return [];
+    } finally {
+      setIsLoadingFournisseurs(false);
     }
   }, []);
 
   useEffect(() => {
     loadDossiers();
   }, [loadDossiers]);
-
-  useEffect(() => {
-    loadConnectedFournisseurs();
-  }, [loadConnectedFournisseurs]);
 
   const visibleDossiers = useMemo(() => (
     dossiers.filter((dossier) => (
@@ -949,14 +954,22 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
   };
 
   const openSendToFournisseur = (dossier) => {
-    const preferred = dossier.assignedFournisseurId || connectedFournisseurs[0]?.profileId || '';
-    setSendToFournisseurModal({
-      open: true,
-      invoiceId: dossier.invoiceId,
-      dossierId: dossier.id,
-      fournisseurId: preferred ? String(preferred) : '',
-      alreadySent: Boolean(dossier.isSentToFournisseur)
-    });
+    void (async () => {
+      const fournisseurs = hasLoadedFournisseurs ? connectedFournisseurs : await loadConnectedFournisseurs();
+      if (!Array.isArray(fournisseurs) || fournisseurs.length === 0) {
+        toast.error(tr('Aucun fournisseur connecte pour le moment.', 'لا يوجد مزود متصل حاليا.'));
+        return;
+      }
+
+      const preferred = dossier.assignedFournisseurId || fournisseurs[0]?.profileId || '';
+      setSendToFournisseurModal({
+        open: true,
+        invoiceId: dossier.invoiceId,
+        dossierId: dossier.id,
+        fournisseurId: preferred ? String(preferred) : '',
+        alreadySent: Boolean(dossier.isSentToFournisseur)
+      });
+    })();
   };
 
   const closeSendToFournisseur = () => {
@@ -1180,7 +1193,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
         : tr('Ouvrez le dossier pour completer les pieces requises.', 'افتح الملف لاكمال الوثائق المطلوبة.');
     }
     if (dossier.boardStateKey === 'ready_to_send') {
-      return connectedFournisseurs.length > 0
+      return !hasLoadedFournisseurs || connectedFournisseurs.length > 0
         ? tr('Tous les documents requis sont la. Vous pouvez envoyer le dossier maintenant.', 'كل الوثائق المطلوبة موجودة. يمكنك ارسال الملف الآن.')
         : tr('Dossier pret, mais aucun fournisseur connecte.', 'الملف جاهز لكن لا يوجد مزوّد متصل.');
     }
@@ -1193,7 +1206,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
       return tr('Suivez les etapes et mettez le statut a jour sans quitter le dashboard.', 'تابع المراحل وحدّث الحالة مباشرة من اللوحة.');
     }
     return tr('Le dossier est termine. Ouvrez-le pour verifier ou archiver.', 'الملف منتهي. افتحه للمراجعة او الارشفة.');
-  }, [connectedFournisseurs.length, getMissingDocLabels, tr]);
+  }, [connectedFournisseurs.length, getMissingDocLabels, hasLoadedFournisseurs, tr]);
 
   const getBoardSteps = useCallback((dossier) => {
     const current = dossier.workflowStepIndex;
@@ -1219,7 +1232,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
       return {
         label: tr('Envoyer au fournisseur', 'ارسال الى المزوّد'),
         onClick: () => openSendToFournisseur(dossier),
-        disabled: connectedFournisseurs.length === 0
+        disabled: isLoadingFournisseurs
       };
     }
 
@@ -1265,7 +1278,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
         key: `send-${dossier.invoiceId}`,
         label: tr('Envoyer', 'ارسال'),
         onClick: () => openSendToFournisseur(dossier),
-        disabled: connectedFournisseurs.length === 0,
+        disabled: isLoadingFournisseurs,
         tone: 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
       });
     }
@@ -1903,7 +1916,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
                 </button>
                 <button
                   onClick={() => openSendToFournisseur(openDossier)}
-                  disabled={connectedFournisseurs.length === 0}
+                  disabled={isLoadingFournisseurs}
                   className="rounded-lg bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-2 text-sm font-bold text-white hover:from-indigo-700 hover:to-blue-700 disabled:opacity-60"
                 >
                   {openDossier.isSentToFournisseur ? tr('Renvoyer au fournisseur', 'إعادة الإرسال للمزوّد') : tr('Envoyer au fournisseur', 'إرسال إلى المزوّد')}
@@ -1919,7 +1932,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
               {!openDossier.clientEmail && (
                 <p className="mt-2 text-xs text-slate-600">{tr("Email client manquant. Vous pouvez le saisir manuellement dans la fenetre d'envoi.", 'بريد الحريف غير موجود. يمكنك إدخاله يدويًا في نافذة الإرسال.')}</p>
               )}
-              {connectedFournisseurs.length === 0 && (
+              {hasLoadedFournisseurs && connectedFournisseurs.length === 0 && (
                 <p className="mt-2 text-xs text-amber-700">{tr('Aucun fournisseur connecte. Acceptez un partenariat avant envoi.', 'لا يوجد مزوّد متصل. اقبل شراكة قبل الإرسال.')}</p>
               )}
             </div>
@@ -2105,7 +2118,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
 
               <button
                 onClick={handleSendToFournisseur}
-                disabled={activeAction === `send-to-fournisseur-${sendToFournisseurModal.invoiceId}` || connectedFournisseurs.length === 0}
+                disabled={activeAction === `send-to-fournisseur-${sendToFournisseurModal.invoiceId}` || isLoadingFournisseurs || connectedFournisseurs.length === 0}
                 className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 disabled:opacity-60"
               >
                 {activeAction === `send-to-fournisseur-${sendToFournisseurModal.invoiceId}` ? tr('Envoi...', 'جار الإرسال...') : sendToFournisseurModal.alreadySent ? tr('Renvoyer dossier', 'إعادة إرسال الملف') : tr('Envoyer dossier', 'إرسال الملف')}

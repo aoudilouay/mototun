@@ -346,7 +346,7 @@ function mapInvoiceToDossier(invoice) {
 
 function FournisseurCarteGrisePage() {
   const queryClient = useQueryClient();
-  const dossiersQueryOptions = fournisseurDossiersQueryOptions();
+  const dossiersQueryOptions = useMemo(() => fournisseurDossiersQueryOptions(), []);
   const dossiersQueryKey = dossiersQueryOptions.queryKey;
 
   const [dossiers, setDossiers] = useState([]);

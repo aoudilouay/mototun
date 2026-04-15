@@ -86,8 +86,13 @@ async function fetchMotorcycles() {
   return extractApiArray(response).map(normalizeMotorcycleRecord);
 }
 
-async function fetchRevendeurInvoices() {
-  const response = await api.get('/Invoices');
+async function fetchRevendeurInvoices(page = 1, pageSize = 20) {
+  const response = await api.get('/Invoices', {
+    params: {
+      page,
+      pageSize,
+    },
+  });
   return extractApiArray(response);
 }
 
@@ -145,10 +150,10 @@ export function motorcyclesQueryOptions() {
   });
 }
 
-export function revendeurInvoicesQueryOptions(page = 1) {
+export function revendeurInvoicesQueryOptions(page = 1, pageSize = 20) {
   return queryOptions({
-    queryKey: [...queryKeys.revendeur.invoices.all, page],
-    queryFn: () => fetchRevendeurInvoices(page),
+    queryKey: [...queryKeys.revendeur.invoices.all, page, pageSize],
+    queryFn: () => fetchRevendeurInvoices(page, pageSize),
     staleTime: 45 * 1000,
     gcTime: 15 * MINUTE,
     placeholderData: keepPreviousData,
