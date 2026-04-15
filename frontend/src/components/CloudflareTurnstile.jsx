@@ -2,9 +2,9 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 
 const TURNSTILE_SCRIPT_ID = 'mototun-cloudflare-turnstile-script';
 const TURNSTILE_SCRIPT_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
-const SCRIPT_LOAD_FAILURE_MESSAGE = 'Unable to load security verification. Please refresh and retry.';
-const CHALLENGE_FAILURE_MESSAGE = 'Unable to verify security challenge. Please retry.';
-const CHALLENGE_EXPIRED_MESSAGE = 'Security challenge expired. Please retry.';
+const SCRIPT_LOAD_FAILURE_MESSAGE = 'La verification de securite ne s est pas chargee. Actualisez la page puis reessayez.';
+const CHALLENGE_FAILURE_MESSAGE = 'La verification n a pas abouti. Reessayez.';
+const CHALLENGE_EXPIRED_MESSAGE = 'La verification a expire. Reessayez.';
 
 let turnstileScriptPromise = null;
 

@@ -10,7 +10,7 @@ export const DEFAULT_API_TIMEOUT_MS = Number.isFinite(parsedDefaultTimeout) && p
   : 10000;
 export const DEFAULT_UPLOAD_TIMEOUT_MS = Number.isFinite(parsedUploadTimeout) && parsedUploadTimeout > 0
   ? parsedUploadTimeout
-  : 60000;
+  : 180000;
 export const AUTH_BOOTSTRAP_TIMEOUT_MS = Math.min(DEFAULT_API_TIMEOUT_MS, 5000);
 
 if (import.meta.env.PROD && !configuredApiBaseUrl) {
@@ -29,7 +29,8 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config) => {
     if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
-      if (!config.timeout) {
+      const configuredTimeout = Number(config.timeout);
+      if (!Number.isFinite(configuredTimeout) || configuredTimeout < DEFAULT_UPLOAD_TIMEOUT_MS) {
         config.timeout = DEFAULT_UPLOAD_TIMEOUT_MS;
       }
       if (config.headers) {
@@ -50,7 +51,7 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.code === 'ECONNABORTED' || /timeout/i.test(String(error.message || ''))) {
-      error.message = 'The request took too long. Please retry.';
+      error.message = 'L envoi prend trop de temps. Verifiez votre connexion puis reessayez.';
     }
 
     const shouldSkipAuthRedirect = Boolean(error.config?.skipAuthRedirect);

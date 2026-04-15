@@ -30,12 +30,13 @@ import {
   revendeurInvoicesQueryOptions,
 } from '../../lib/appQueries';
 import { preloadRouteModule } from '../../lib/routePreloaders';
+import { optimizeDocumentImageUpload } from '../../utils/imageTransform';
 
 const DOCUMENT_FIELDS = [
-  { key: 'facture', type: 3, label: 'Facture externe', hint: 'Obligatoire. Chargez la facture creee dans votre systeme actuel.', required: true, icon: FileText, accent: 'from-blue-600 to-cyan-500' },
-  { key: 'cinFront', type: 6, label: 'CIN recto', hint: 'Optionnel maintenant. Peut etre ajoute plus tard dans Carte grise.', required: false, icon: IdCard, accent: 'from-violet-600 to-fuchsia-500' },
-  { key: 'cinBack', type: 7, label: 'CIN verso', hint: 'Optionnel maintenant. Peut etre ajoute plus tard dans Carte grise.', required: false, icon: IdCard, accent: 'from-indigo-600 to-blue-500' },
-  { key: 'declaration', type: 1, label: "Declaration d'impot", hint: 'Optionnel maintenant. Peut etre ajoute plus tard dans Carte grise.', required: false, icon: ShieldCheck, accent: 'from-emerald-600 to-teal-500' }
+  { key: 'facture', type: 3, label: 'Facture externe', hint: 'Obligatoire. Ajoutez la facture de vente en PDF ou en photo.', required: true, icon: FileText, accent: 'from-blue-600 to-cyan-500' },
+  { key: 'cinFront', type: 6, label: 'CIN recto', hint: 'Optionnel maintenant. Vous pourrez l ajouter plus tard si besoin.', required: false, icon: IdCard, accent: 'from-violet-600 to-fuchsia-500' },
+  { key: 'cinBack', type: 7, label: 'CIN verso', hint: 'Optionnel maintenant. Vous pourrez l ajouter plus tard si besoin.', required: false, icon: IdCard, accent: 'from-indigo-600 to-blue-500' },
+  { key: 'declaration', type: 1, label: "Declaration d'impot", hint: 'Optionnel maintenant. Vous pourrez l ajouter plus tard si besoin.', required: false, icon: ShieldCheck, accent: 'from-emerald-600 to-teal-500' }
 ];
 
 const EMPTY_UPLOADS = { facture: null, cinFront: null, cinBack: null, declaration: null };
@@ -359,9 +360,10 @@ function InvoicesPage() {
   async function uploadDocument(invoiceId, field) {
     const file = uploads[field.key];
     if (!file) return;
+    const preparedUpload = await optimizeDocumentImageUpload(file);
     const formData = new FormData();
     formData.append('documentType', String(field.type));
-    formData.append('file', file);
+    formData.append('file', preparedUpload.file);
     await api.post(`/Invoices/${invoiceId}/documents`, formData);
   }
 
@@ -381,12 +383,12 @@ function InvoicesPage() {
     const model = sale.motorcycleModel.trim();
     const chassisNumber = sale.chassisNumber.trim().toUpperCase();
 
-    if (!uploads.facture) return toast.error('La facture externe est obligatoire pour enregistrer la vente.');
-    if (!selectedClientId && (!manualClient.fullName || !manualClient.cin)) return toast.error('Selectionnez un client ou saisissez au minimum le nom et le CIN.');
-    if (!brand || !model || !company) return toast.error('Company, marque et modele sont obligatoires.');
-    if (!chassisNumber) return toast.error('Numero de chassis obligatoire.');
+    if (!uploads.facture) return toast.error('Ajoutez la facture avant d enregistrer la vente.');
+    if (!selectedClientId && (!manualClient.fullName || !manualClient.cin)) return toast.error('Choisissez un client ou ajoutez au moins son nom et son CIN.');
+    if (!brand || !model || !company) return toast.error('Ajoutez la societe, la marque et le modele.');
+    if (!chassisNumber) return toast.error('Ajoutez le numero de chassis.');
     if (saleAmount <= 0) return toast.error('Prix de vente invalide.');
-    if (selectedStockId && !selectedStock) return toast.error('La moto selectionnee en stock est introuvable.');
+    if (selectedStockId && !selectedStock) return toast.error('La moto choisie dans le stock est introuvable.');
 
     const payload = {
       invoiceDate: sale.saleDate ? new Date(`${sale.saleDate}T12:00:00`).toISOString() : new Date().toISOString(),
@@ -410,7 +412,7 @@ function InvoicesPage() {
       const response = await api.post('/Invoices', payload);
       const invoiceId = response?.data?.data?.invoiceId;
       const clientPortalAccessCode = response?.data?.data?.clientPortalAccessCode;
-      if (!invoiceId) throw new Error('Identifiant dossier manquant.');
+      if (!invoiceId) throw new Error('Numero de dossier introuvable.');
 
       const failedUploads = [];
       for (const field of DOCUMENT_FIELDS) {
@@ -419,7 +421,7 @@ function InvoicesPage() {
           await uploadDocument(invoiceId, field);
         } catch (error) {
           failedUploads.push(field.label);
-          toast.error(getApiErrorMessage(error, `Impossible de charger ${field.label}.`));
+          toast.error(getApiErrorMessage(error, `Impossible d envoyer ${field.label}.`));
         }
       }
 
@@ -435,13 +437,13 @@ function InvoicesPage() {
       void preloadRouteModule('/revendeur/carte-grise');
       window.dispatchEvent(new Event('notifications:refresh'));
       if (failedUploads.length > 0) {
-        toast.warning(`Vente enregistree. Code portail: ${clientPortalAccessCode || 'genere'}. Documents a reprendre: ${failedUploads.join(', ')}.`);
+        toast.warning(`Vente enregistree. Code client : ${clientPortalAccessCode || 'genere'}. Documents a renvoyer : ${failedUploads.join(', ')}.`);
       } else {
-        toast.success(`Vente enregistree avec succes. Code portail: ${clientPortalAccessCode || 'genere'}.`);
+        toast.success(`Vente enregistree avec succes. Code client : ${clientPortalAccessCode || 'genere'}.`);
       }
       navigate('/revendeur/carte-grise');
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Erreur lors de la creation du dossier de vente.'));
+      toast.error(getApiErrorMessage(error, 'Impossible de creer le dossier de vente.'));
     } finally {
       setSaving(false);
     }

@@ -8,7 +8,7 @@ import CloudflareTurnstile from '../components/CloudflareTurnstile';
 import { prefetchDataForRole } from '../lib/appQueries';
 import { preloadRouteModule } from '../lib/routePreloaders';
 
-const TURNSTILE_REQUIRED_MESSAGE = 'Please complete the security challenge.';
+const TURNSTILE_REQUIRED_MESSAGE = 'Confirmez que vous n etes pas un robot.';
 
 function LoginPage() {
   const [email, setEmail] = useState('');
@@ -73,30 +73,34 @@ function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-start justify-center px-4 py-6 sm:items-center sm:p-6 relative overflow-hidden">
       <div className="absolute left-10 top-20 hidden h-96 w-96 rounded-full bg-blue-400/20 blur-3xl animate-pulse sm:block" />
       <div className="absolute bottom-20 right-10 hidden h-96 w-96 rounded-full bg-cyan-400/20 blur-3xl animate-pulse sm:block" style={{ animationDelay: '1s' }} />
 
       <div className="w-full max-w-md relative z-10">
-        <div className="text-center mb-8">
+        <div className="text-center mb-5 sm:mb-8">
           <Link to="/" className="inline-flex items-center gap-3 mb-6">
             <BrandLogo imageClassName="h-14 w-auto rounded-lg border border-slate-200 shadow-lg" />
             <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
               TuniMoto
             </span>
           </Link>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">{t('login.title')}</h1>
-          <p className="text-slate-600">{t('login.subtitle')}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">{t('login.title')}</h1>
+          <p className="mx-auto max-w-sm text-sm sm:text-base text-slate-600">{t('login.subtitle')}</p>
+          <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white/85 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">
+            <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+            Connexion rapide, meme sur mobile
+          </div>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
+        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-start gap-3">
                 <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
-                <p className="text-sm text-red-700 font-medium">{error}</p>
+                <p className="text-sm leading-6 text-red-700 font-medium">{error}</p>
               </div>
             </div>
           )}
@@ -118,7 +122,7 @@ function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="votre@email.com"
-                  className="w-full pl-12 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  className="w-full min-h-12 pl-12 pr-4 py-3.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                   required
                 />
               </div>
@@ -140,7 +144,7 @@ function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="********"
-                  className="w-full pl-12 pr-12 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  className="w-full min-h-12 pl-12 pr-12 py-3.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                   required
                 />
                 <button
@@ -163,7 +167,7 @@ function LoginPage() {
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer min-h-10">
                 <input
                   type="checkbox"
                   checked={rememberMe}
@@ -172,7 +176,7 @@ function LoginPage() {
                 />
                 <span className="text-sm text-slate-600">{t('login.remember')}</span>
               </label>
-              <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+              <Link to="/forgot-password" className="text-sm text-blue-600 hover:text-blue-700 font-medium min-h-10 inline-flex items-center">
                 {t('login.forgot')}
               </Link>
             </div>
@@ -190,7 +194,7 @@ function LoginPage() {
             <button
               type="submit"
               disabled={loading || (turnstileEnabled && !turnstileToken)}
-              className="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full min-h-12 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-xl shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">

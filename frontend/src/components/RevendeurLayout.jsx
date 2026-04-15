@@ -151,18 +151,6 @@ function RevendeurLayout() {
   const clientCount = menuItems.find((item) => item.path === '/revendeur/clients')?.badge || '12';
   const dossierCount = menuItems.find((item) => item.path === '/revendeur/carte-grise')?.badge || '5';
   const fournisseurCount = menuItems.find((item) => item.path === '/revendeur/fournisseurs')?.badge || '4';
-  const allNavigationItems = [...menuItems, ...secondaryMenuItems];
-  const itemDescriptions = {
-    '/revendeur/dashboard': 'Vue globale',
-    '/revendeur/clients': 'Base clients',
-    '/revendeur/motorcycles': 'Stock motos',
-    '/revendeur/carte-grise': 'Dossiers actifs',
-    '/revendeur/invoices': 'Ventes et factures',
-    '/revendeur/fournisseurs': 'Reseau partenaires',
-    '/revendeur/archive': 'Historique',
-    '/revendeur/stats': 'Analyse business',
-    '/revendeur/support': 'Aide et tickets'
-  };
   const displayName = (() => {
     const fullName = String(user?.fullName || '').trim();
     if (fullName) return fullName;
@@ -806,4 +794,3 @@ function RevendeurLayout() {
 }
 
 export default RevendeurLayout;
-

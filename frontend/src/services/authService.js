@@ -132,9 +132,9 @@ const authService = {
       if (response.data.success) {
         return persistSession(response.data.data);
       }
-      throw new Error(response.data.message || 'Registration failed');
+      throw new Error(response.data.message || 'Impossible de creer le compte.');
     } catch (error) {
-      throw error.response?.data?.message || error.message || 'Registration failed';
+      throw error.response?.data?.message || error.message || 'Impossible de creer le compte.';
     }
   },
 
@@ -145,14 +145,14 @@ const authService = {
       if (response.data.success) {
         // Check if user is Client (not allowed to login)
         if (response.data.data.role === 'Client') {
-          throw new Error('Les clients n\'ont pas acces a cette page. Utilisez votre lien portal unique.');
+          throw new Error('Les clients n ont pas besoin de se connecter ici. Utilisez le lien recu par SMS ou WhatsApp.');
         }
 
         return persistSession(response.data.data);
       }
-      throw new Error(response.data.message || 'Login failed');
+      throw new Error(response.data.message || 'Impossible de se connecter.');
     } catch (error) {
-      throw error.response?.data?.message || error.message || 'Login failed';
+      throw error.response?.data?.message || error.message || 'Impossible de se connecter.';
     }
   },
 
@@ -160,12 +160,12 @@ const authService = {
     try {
       const response = await axios.post('/Auth/forgot-password', { email, turnstileToken });
       if (!response.data?.success) {
-        throw new Error(response.data?.message || 'Password reset request failed');
+        throw new Error(response.data?.message || 'Impossible d envoyer le lien.');
       }
 
-      return response.data.message || 'If the email exists, reset instructions have been sent.';
+      return response.data.message || 'Si cet email existe, vous allez recevoir les instructions.';
     } catch (error) {
-      throw error.response?.data?.message || error.message || 'Password reset request failed';
+      throw error.response?.data?.message || error.message || 'Impossible d envoyer le lien.';
     }
   },
 
@@ -178,12 +178,12 @@ const authService = {
       });
 
       if (!response.data?.success) {
-        throw new Error(response.data?.message || 'Password reset failed');
+        throw new Error(response.data?.message || 'Impossible de changer le mot de passe.');
       }
 
-      return response.data.message || 'Password updated successfully.';
+      return response.data.message || 'Mot de passe mis a jour.';
     } catch (error) {
-      throw error.response?.data?.message || error.message || 'Password reset failed';
+      throw error.response?.data?.message || error.message || 'Impossible de changer le mot de passe.';
     }
   },
 

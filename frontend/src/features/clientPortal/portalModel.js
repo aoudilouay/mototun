@@ -23,7 +23,7 @@ export const CLIENT_PORTAL_DOCUMENT_TYPES = [
   {
     value: 1,
     key: 'declaration',
-    label: "Declaration d'impot",
+    label: "Attestation d'impot",
     required: true,
     accept: '.pdf,.png,.jpg,.jpeg,.webp,.bmp,.jfif,.heic,.heif,.avif'
   }
@@ -32,8 +32,8 @@ export const CLIENT_PORTAL_DOCUMENT_TYPES = [
 export const CLIENT_PORTAL_CARTE_GRISE_STATUS = {
   0: { label: 'En attente', className: 'bg-amber-100 text-amber-800 border-amber-200' },
   1: { label: 'Docs recus', className: 'bg-sky-100 text-sky-800 border-sky-200' },
-  2: { label: 'Controle qualite', className: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
-  6: { label: 'Depot ANTT', className: 'bg-violet-100 text-violet-800 border-violet-200' },
+  2: { label: 'Verification', className: 'bg-indigo-100 text-indigo-800 border-indigo-200' },
+  6: { label: 'Depot ANTT en cours', className: 'bg-violet-100 text-violet-800 border-violet-200' },
   3: { label: 'Carte grise prete', className: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
   4: { label: 'Action requise', className: 'bg-rose-100 text-rose-800 border-rose-200' },
   5: { label: 'Livree', className: 'bg-slate-100 text-slate-700 border-slate-300' }
@@ -48,7 +48,7 @@ export const CLIENT_PORTAL_INVOICE_STATUS = {
 export const CLIENT_PORTAL_PROCESS_STEPS = [
   'En attente',
   'Docs recus',
-  'Controle qualite',
+  'Verification',
   'Depot ANTT',
   'Carte grise prete',
   'Livree'
@@ -132,7 +132,7 @@ export function resolveClientPortalPreviewKind(mimeType, fileName) {
 export function getClientPortalDocumentMeta(existing, required) {
   if (existing) {
     return {
-      label: 'Uploade',
+      label: 'Ajoute',
       className: 'bg-emerald-100 text-emerald-800 border border-emerald-200'
     };
   }
@@ -231,15 +231,15 @@ function getProgressMeta(status, uploadedCount, totalRequired) {
   }
 
   if (status === 6) {
-    return { percent: 76, currentStepIndex: 3, estimate: 'Depot ANTT en cours' };
+    return { percent: 76, currentStepIndex: 3, estimate: 'Depot au bureau ANTT en cours' };
   }
 
   if (status === 2) {
-    return { percent: 62, currentStepIndex: 2, estimate: 'Controle qualite en cours' };
+    return { percent: 62, currentStepIndex: 2, estimate: 'Nous verifions vos documents' };
   }
 
   if (status === 1) {
-    return { percent: 42, currentStepIndex: 1, estimate: 'Documents recus et verifies' };
+    return { percent: 42, currentStepIndex: 1, estimate: 'Documents recus' };
   }
 
   if (status === 4) {
@@ -249,7 +249,7 @@ function getProgressMeta(status, uploadedCount, totalRequired) {
   return {
     percent: Math.max(10, Math.round(docsRatio * 24)),
     currentStepIndex: 0,
-    estimate: docsRatio >= 1 ? 'En attente de verification' : 'Documents manquants'
+    estimate: docsRatio >= 1 ? 'En attente de verification' : 'Des documents manquent encore'
   };
 }
 
@@ -267,9 +267,9 @@ function buildPortalMessages(
   const messages = [
     {
       id: 'status-update',
-      sender: 'Suivi dossier',
+      sender: 'Suivi du dossier',
       tone: 'info',
-      text: `Statut actuel: ${carteGriseMeta.label}. ${progressMeta.estimate}.`,
+      text: `Votre dossier est actuellement : ${carteGriseMeta.label}. ${progressMeta.estimate}.`,
       createdAt: dossier.updatedAt
     }
   ];
@@ -287,17 +287,17 @@ function buildPortalMessages(
   if (missingRequiredDocuments.length > 0) {
     messages.push({
       id: 'missing-docs',
-      sender: 'Action requise',
+      sender: 'A faire',
       tone: 'warning',
-      text: `Documents manquants: ${missingRequiredDocuments.map((doc) => doc.label).join(', ')}.`,
+      text: `Il manque encore : ${missingRequiredDocuments.map((doc) => doc.label).join(', ')}.`,
       createdAt: dossier.updatedAt
     });
   } else {
     messages.push({
       id: 'docs-confirmation',
-      sender: 'Equipe dossier',
+      sender: 'Equipe Tunimoto',
       tone: 'agent',
-      text: 'Tous les documents requis sont recus. Vous serez notifie a chaque etape.',
+      text: 'Tous les documents demandes sont bien recus. Nous vous prevenons a chaque etape.',
       createdAt: dossier.updatedAt
     });
   }
@@ -305,9 +305,9 @@ function buildPortalMessages(
   if (nextRequiredDocument) {
     messages.push({
       id: 'next-doc',
-      sender: 'Rappel',
+      sender: 'Rappel utile',
       tone: 'warning',
-      text: `Prochain document recommande: ${nextRequiredDocument.label}.`,
+      text: `Ajoutez maintenant : ${nextRequiredDocument.label}.`,
       createdAt: dossier.updatedAt
     });
   }

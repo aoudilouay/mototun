@@ -30,9 +30,9 @@ const clientPortalService = {
         return response.data.data;
       }
 
-      throw new Error(response?.data?.message || 'Acces refuse');
+      throw new Error(response?.data?.message || 'Acces refuse.');
     } catch (error) {
-      throw new Error(getApiErrorMessage(error, 'Code invalide'));
+      throw new Error(getApiErrorMessage(error, 'Code incorrect.'));
     }
   },
 
@@ -47,13 +47,13 @@ const clientPortalService = {
         return response.data.data;
       }
 
-      throw new Error(response?.data?.message || 'Dossier introuvable');
+      throw new Error(response?.data?.message || 'Dossier introuvable.');
     } catch (error) {
-      throw new Error(getApiErrorMessage(error, 'Impossible de charger le dossier'));
+      throw new Error(getApiErrorMessage(error, 'Impossible d ouvrir le dossier.'));
     }
   },
 
-  uploadDocument: async (invoiceId, code, documentType, file) => {
+  uploadDocument: async (invoiceId, code, documentType, file, options = {}) => {
     const formData = new FormData();
     formData.append('code', code);
     formData.append('documentType', String(documentType));
@@ -61,16 +61,29 @@ const clientPortalService = {
 
     try {
       const response = await api.post(`/client-portal/${invoiceId}/documents`, formData, {
-        skipAuthRedirect: true
+        skipAuthRedirect: true,
+        onUploadProgress: typeof options.onProgress === 'function'
+          ? (progressEvent) => {
+            const total = Number(progressEvent.total);
+            const loaded = Number(progressEvent.loaded);
+            if (!Number.isFinite(total) || total <= 0) {
+              options.onProgress(0, { loaded, total: null });
+              return;
+            }
+
+            const percent = Math.max(0, Math.min(100, Math.round((loaded / total) * 100)));
+            options.onProgress(percent, { loaded, total });
+          }
+          : undefined
       });
 
       if (response?.data?.success) {
         return response.data.data;
       }
 
-      throw new Error(response?.data?.message || 'Echec upload');
+      throw new Error(response?.data?.message || 'Impossible d envoyer le document.');
     } catch (error) {
-      throw new Error(getApiErrorMessage(error, 'Impossible de charger le document'));
+      throw new Error(getApiErrorMessage(error, 'Impossible d envoyer le document.'));
     }
   },
 
@@ -96,9 +109,9 @@ const clientPortalService = {
         return response.data.data;
       }
 
-      throw new Error(response?.data?.message || 'Acces document indisponible');
+      throw new Error(response?.data?.message || 'Document indisponible.');
     } catch (error) {
-      throw new Error(getApiErrorMessage(error, 'Impossible de preparer le document'));
+      throw new Error(getApiErrorMessage(error, 'Impossible d ouvrir le document.'));
     }
   },
 

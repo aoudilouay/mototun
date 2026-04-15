@@ -5,7 +5,7 @@ import { useI18n } from '../context/I18nContext';
 import BrandLogo from '../components/BrandLogo';
 import CloudflareTurnstile from '../components/CloudflareTurnstile';
 
-const TURNSTILE_REQUIRED_MESSAGE = 'Please complete the security challenge.';
+const TURNSTILE_REQUIRED_MESSAGE = 'Confirmez que vous n etes pas un robot.';
 
 function ForgotPasswordPage() {
   const { forgotPassword } = useAuth();
@@ -39,7 +39,7 @@ function ForgotPasswordPage() {
         turnstileRef.current?.reset?.();
       }
     } catch (err) {
-      setError(typeof err === 'string' ? err : isArabic ? 'An unexpected error occurred.' : 'Une erreur est survenue.');
+      setError(typeof err === 'string' ? err : isArabic ? 'Une erreur est survenue.' : 'Une erreur est survenue.');
       if (turnstileEnabled) {
         setTurnstileToken('');
         turnstileRef.current?.reset?.();
@@ -50,18 +50,18 @@ function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-blue-50 flex items-center justify-center p-4 sm:p-6">
-      <div className="w-full max-w-md bg-white border border-slate-200 rounded-2xl shadow-xl p-6 sm:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-blue-50 flex items-start justify-center px-4 py-6 sm:items-center sm:p-6">
+      <div className="w-full max-w-md bg-white border border-slate-200 rounded-[28px] shadow-xl p-6 sm:p-8">
         <Link to="/" className="inline-flex items-center gap-3 mb-6">
           <BrandLogo imageClassName="h-12 w-auto rounded-lg border border-slate-200 shadow" />
           <span className="text-xl font-bold text-slate-900">TuniMoto</span>
         </Link>
 
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">{isArabic ? 'Forgot password' : 'Mot de passe oublie'}</h1>
-        <p className="text-sm text-slate-600 mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">{isArabic ? 'Forgot password' : 'Mot de passe oublie'}</h1>
+        <p className="text-sm sm:text-base text-slate-600 mb-6 leading-6">
           {isArabic
             ? 'Enter your email. If the account exists, you will receive a reset link.'
-            : 'Entrez votre email. Si le compte existe, vous recevrez un lien de reinitialisation.'}
+            : 'Entrez votre email. Si nous retrouvons votre compte, vous recevrez un lien pour choisir un nouveau mot de passe.'}
         </p>
 
         {error && (
@@ -86,7 +86,7 @@ function ForgotPasswordPage() {
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-12 px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder={isArabic ? 'example@email.com' : 'votre@email.com'}
               required
             />
@@ -105,9 +105,9 @@ function ForgotPasswordPage() {
           <button
             type="submit"
             disabled={loading || (turnstileEnabled && !turnstileToken)}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition disabled:opacity-60"
+            className="w-full min-h-12 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition disabled:opacity-60"
           >
-            {loading ? (isArabic ? 'Sending...' : 'Envoi...') : (isArabic ? 'Send link' : 'Envoyer le lien')}
+            {loading ? (isArabic ? 'Envoi...' : 'Envoi...') : (isArabic ? 'Send link' : 'Envoyer le lien')}
           </button>
         </form>
 

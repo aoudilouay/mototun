@@ -5,7 +5,7 @@ import { useI18n } from '../context/I18nContext';
 import BrandLogo from '../components/BrandLogo';
 import CloudflareTurnstile from '../components/CloudflareTurnstile';
 
-const TURNSTILE_REQUIRED_MESSAGE = 'Please complete the security challenge.';
+const TURNSTILE_REQUIRED_MESSAGE = 'Confirmez que vous n etes pas un robot.';
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -98,24 +98,24 @@ function RegisterPage() {
   const isRevendeur = Number(formData.role) === 2;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-center justify-center p-4 sm:p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-cyan-50 flex items-start justify-center px-4 py-6 sm:items-center sm:p-6 relative overflow-hidden">
       <div className="absolute left-10 top-20 hidden h-96 w-96 rounded-full bg-blue-400/20 blur-3xl animate-pulse sm:block" />
       <div className="absolute bottom-20 right-10 hidden h-96 w-96 rounded-full bg-cyan-400/20 blur-3xl animate-pulse sm:block" style={{ animationDelay: '1s' }} />
 
       <div className="w-full max-w-2xl relative z-10">
-        <div className="text-center mb-8">
+        <div className="text-center mb-5 sm:mb-8">
           <Link to="/" className="inline-flex items-center gap-3 mb-6">
             <BrandLogo imageClassName="h-14 w-auto rounded-lg border border-slate-200 shadow-lg" />
             <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent">
               TuniMoto
             </span>
           </Link>
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">{t('register.title')}</h1>
-          <p className="text-slate-600">{t('register.subtitle')}</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">{t('register.title')}</h1>
+          <p className="mx-auto max-w-lg text-sm sm:text-base text-slate-600">{t('register.subtitle')}</p>
         </div>
 
-        <div className="mb-8">
-          <div className="flex flex-wrap items-center justify-center gap-4">
+        <div className="mb-6 sm:mb-8">
+          <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
             <div className={`flex items-center gap-2 ${currentStep >= 1 ? 'text-blue-600' : 'text-slate-400'}`}>
               <div className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${currentStep >= 1 ? 'bg-blue-600 text-white' : 'bg-slate-200'}`}>
                 1
@@ -130,16 +130,19 @@ function RegisterPage() {
               <span className="text-sm font-medium hidden sm:inline">{t('register.step2')}</span>
             </div>
           </div>
+          <p className="mt-3 text-center text-sm text-slate-500">
+            Etape {currentStep} sur 2
+          </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
+        <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-xl sm:p-8">
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-start gap-3">
                 <svg className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                 </svg>
-                <p className="text-sm text-red-700 font-medium">{error}</p>
+                <p className="text-sm leading-6 text-red-700 font-medium">{error}</p>
               </div>
             </div>
           )}
@@ -155,7 +158,7 @@ function RegisterPage() {
                     <button
                       type="button"
                       onClick={() => setFormData((prev) => ({ ...prev, role: 2 }))}
-                      className={`p-4 rounded-xl border-2 transition-all ${
+                      className={`p-4 rounded-2xl border-2 transition-all ${
                         isRevendeur
                           ? 'border-blue-500 bg-blue-50 shadow-lg shadow-blue-500/20'
                           : 'border-slate-200 hover:border-blue-300'
@@ -177,7 +180,7 @@ function RegisterPage() {
                     <button
                       type="button"
                       onClick={() => setFormData((prev) => ({ ...prev, role: 3 }))}
-                      className={`p-4 rounded-xl border-2 transition-all ${
+                      className={`p-4 rounded-2xl border-2 transition-all ${
                         !isRevendeur
                           ? 'border-purple-500 bg-purple-50 shadow-lg shadow-purple-500/20'
                           : 'border-slate-200 hover:border-purple-300'
@@ -209,7 +212,7 @@ function RegisterPage() {
                     value={formData.fullName}
                     onChange={handleChange}
                     placeholder="Ex: Mohamed Bouazizi"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    className="w-full min-h-12 px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     required
                   />
                 </div>
@@ -225,7 +228,7 @@ function RegisterPage() {
                     value={formData.businessName}
                     onChange={handleChange}
                     placeholder={isRevendeur ? 'Ex: Moto Shop Tunis' : 'Ex: CCT Motors SARL'}
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    className="w-full min-h-12 px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     required
                   />
                 </div>
@@ -241,7 +244,7 @@ function RegisterPage() {
                     value={formData.taxId}
                     onChange={handleChange}
                     placeholder="Ex: 1234567/A/M/000"
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    className="w-full min-h-12 px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     required
                   />
                 </div>
@@ -258,7 +261,7 @@ function RegisterPage() {
                       value={formData.email}
                       onChange={handleChange}
                       placeholder="votre@email.com"
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      className="w-full min-h-12 px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                       required
                     />
                   </div>
@@ -274,7 +277,7 @@ function RegisterPage() {
                       value={formData.phone}
                       onChange={handleChange}
                       placeholder="+216 XX XXX XXX"
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      className="w-full min-h-12 px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     />
                   </div>
                 </div>
@@ -291,7 +294,7 @@ function RegisterPage() {
                       value={formData.address}
                       onChange={handleChange}
                       placeholder="Ex: 123 Avenue Habib Bourguiba"
-                      className="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      className="w-full min-h-12 px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                     />
                   </div>
 
@@ -350,7 +353,7 @@ function RegisterPage() {
                       value={formData.password}
                       onChange={handleChange}
                       placeholder="Min. 10 caracteres"
-                      className="w-full px-4 py-3 pr-12 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      className="w-full min-h-12 px-4 py-3 pr-12 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                       required
                       minLength={10}
                     />
@@ -380,7 +383,7 @@ function RegisterPage() {
                       value={formData.confirmPassword}
                       onChange={handleChange}
                       placeholder={t('register.confirmHint')}
-                      className="w-full px-4 py-3 pr-12 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                      className="w-full min-h-12 px-4 py-3 pr-12 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
                       required
                     />
                     <button
@@ -433,14 +436,14 @@ function RegisterPage() {
                       turnstileRef.current?.reset?.();
                     }}
                     disabled={loading}
-                    className="flex-1 py-3 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 min-h-12 py-3 border border-slate-300 text-slate-700 font-semibold rounded-lg hover:bg-slate-50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {'<'} {t('register.back')}
                   </button>
                   <button
                     type="submit"
                     disabled={loading || (turnstileEnabled && !turnstileToken)}
-                    className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 min-h-12 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold rounded-lg shadow-lg shadow-blue-500/30 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? t('register.creating') : t('register.create')}
                   </button>

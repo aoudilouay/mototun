@@ -115,15 +115,6 @@ function FournisseurLayout() {
   const userAvatarUrl = resolveAvatarUrl(user?.avatar || user?.profile?.avatar);
   const revendeurCount = menuItems.find((item) => item.path === '/fournisseur/revendeurs')?.badge || '24';
   const dossierCount = menuItems.find((item) => item.path === '/fournisseur/carte-grise')?.badge || '12';
-  const allNavigationItems = [...menuItems, ...secondaryMenuItems];
-  const itemDescriptions = {
-    '/fournisseur/dashboard': 'Vue globale',
-    '/fournisseur/revendeurs': 'Partenaires actifs',
-    '/fournisseur/carte-grise': 'Dossiers a traiter',
-    '/fournisseur/stats': 'Analyse du flux',
-    '/fournisseur/settings': 'Configuration',
-    '/fournisseur/support': 'Aide et tickets'
-  };
   const displayName = (() => {
     const fullName = String(user?.fullName || '').trim();
     if (fullName) return fullName;

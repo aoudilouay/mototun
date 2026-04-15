@@ -248,8 +248,8 @@ function LandingPage() {
     <>
       <div>
         {/* Navigation */}
-        <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-lg border-b border-slate-200/60">
-          <div className="max-w-[1480px] mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex flex-wrap 2xl:flex-nowrap items-center gap-3 justify-between">
+        <nav className="fixed top-0 w-full z-50 bg-white/88 backdrop-blur-lg border-b border-slate-200/60">
+          <div className="max-w-[1480px] mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4 flex flex-nowrap 2xl:flex-nowrap items-center gap-3 justify-between">
             {/* Logo */}
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
               <div className="flex items-center gap-2">
@@ -277,7 +277,7 @@ function LandingPage() {
             {/* Mobile Menu Toggle - Hamburger Button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="lg:hidden flex items-center justify-center w-10 h-10 rounded-lg hover:bg-slate-100 transition"
+              className="lg:hidden flex items-center justify-center w-11 h-11 rounded-xl border border-slate-200 bg-white/90 hover:bg-slate-100 transition"
               aria-label="Toggle menu"
             >
               <svg className="w-6 h-6 text-slate-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -289,8 +289,8 @@ function LandingPage() {
               </svg>
             </button>
 
-            {/* Right Side - 3 Buttons */}
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Right Side - Desktop Buttons */}
+            <div className="hidden sm:flex items-center gap-2 sm:gap-3 shrink-0">
               {/* Client portal - secondary utility link */}
               <Link
                 to="/client-portal"
@@ -307,7 +307,7 @@ function LandingPage() {
                 to="/login"
                 className="px-3 sm:px-5 py-2 border border-slate-300 hover:border-blue-400 text-slate-700 text-xs sm:text-sm font-semibold rounded-lg transition-all"
               >
-                Connexion
+                Se connecter
               </Link>
 
               {/* Button 3: Sign Up */}
@@ -323,8 +323,8 @@ function LandingPage() {
 
         {/* Mobile Navigation Menu */}
         {isMobileMenuOpen && (
-          <div className="fixed top-16 left-0 right-0 z-40 lg:hidden bg-white border-b border-slate-200/60 shadow-lg">
-            <div className="max-w-[1480px] mx-auto px-4 py-4 space-y-3">
+          <div className="fixed top-[68px] left-0 right-0 z-40 px-3 lg:hidden">
+            <div className="max-w-[1480px] mx-auto rounded-[28px] border border-slate-200/80 bg-white/95 px-4 py-4 shadow-2xl backdrop-blur space-y-3">
               <a href="#roles" className="block px-4 py-2 text-slate-700 hover:bg-slate-50 rounded-lg transition" onClick={() => setIsMobileMenuOpen(false)}>
                 Comment ça marche
               </a>
@@ -343,6 +343,13 @@ function LandingPage() {
               </Link>
               <div className="pt-2 border-t border-slate-200">
                 <Link
+                  to="/login"
+                  className="mb-2 block w-full px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg text-center transition"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Se connecter
+                </Link>
+                <Link
                   to="/register"
                   className="block w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg text-center transition"
                   onClick={() => setIsMobileMenuOpen(false)}
@@ -353,7 +360,7 @@ function LandingPage() {
             </div>
           </div>
         )}
-        <section className="bg-gradient-to-br from-blue-50 via-white to-cyan-50 pt-32 pb-20 relative overflow-hidden">
+        <section className="bg-gradient-to-br from-blue-50 via-white to-cyan-50 pt-24 pb-14 sm:pt-32 sm:pb-20 relative overflow-hidden">
 
           {/* Animated background pattern - flowing gradients */}
           <div className="absolute inset-0 opacity-50 overflow-hidden">
@@ -366,7 +373,7 @@ function LandingPage() {
           <div className="hidden sm:block absolute bottom-20 right-10 w-80 h-80 lg:w-96 lg:h-96 bg-cyan-400/30 rounded-full blur-3xl will-change-transform" style={{animation: 'float 8s ease-in-out infinite 1s, pulse 4s ease-in-out infinite 1s'}} />
 
           <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
-            <div className="text-center max-w-4xl mx-auto space-y-8">
+            <div className="text-center max-w-4xl mx-auto space-y-6 sm:space-y-8">
               
               <div className="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-lg shadow-blue-500/10 border border-blue-100">
                 <span className="flex h-2 w-2">
@@ -374,11 +381,11 @@ function LandingPage() {
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
                 </span>
                 <span className="text-xs font-semibold text-slate-700">
-                  Pensé pour les revendeurs moto qui gèrent leurs dossiers carte grise au quotidien
+                  Suivez vos dossiers sans appels inutiles
                 </span>
               </div>
 
-              <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-[1.1] tracking-tight">
+              <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black leading-[1.1] tracking-tight">
                 <span className="block text-slate-900">
                   Vos dossiers carte grise
                 </span>
@@ -387,11 +394,11 @@ function LandingPage() {
                 </span>
               </h1>
 
-              <p className="text-xl md:text-2xl text-slate-600 font-medium max-w-3xl mx-auto leading-relaxed">
-                Tunimoto centralise les documents, montre ce qui manque, prépare l&apos;envoi au fournisseur et suit chaque dossier jusqu&apos;à la carte grise prête.
+              <p className="text-base sm:text-xl md:text-2xl text-slate-600 font-medium max-w-3xl mx-auto leading-relaxed">
+                Tunimoto regroupe vos documents, montre ce qui manque et suit chaque dossier jusqu&apos;a la carte grise prete.
               </p>
 
-              <div className="flex flex-wrap items-center justify-center gap-6 pt-2 text-sm">
+              <div className="grid grid-cols-1 gap-3 pt-2 text-sm sm:grid-cols-3 sm:gap-4">
                 <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-full shadow-md border border-slate-200">
                   <span className="text-2xl font-bold text-blue-600">2-3h</span>
                   <span className="text-slate-600 text-xs">gagnées/jour</span>
@@ -406,19 +413,19 @@ function LandingPage() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 pt-2 sm:pt-4">
                 <Link
                   to="/register"
-                  className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold rounded-xl shadow-xl shadow-blue-500/25 hover:shadow-blue-600/40 transition-all transform hover:-translate-y-0.5"
+                  className="w-full sm:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold rounded-xl shadow-xl shadow-blue-500/25 hover:shadow-blue-600/40 transition-all transform hover:-translate-y-0.5"
                 >
-                  Créer mon espace revendeur
+                  Créer mon espace
                 </Link>
-                <a href="#demo" className="px-8 py-4 bg-white hover:bg-slate-50 text-slate-700 text-lg font-semibold rounded-xl border-2 border-slate-200 hover:border-blue-300 transition-all">
+                <a href="#demo" className="w-full sm:w-auto px-8 py-4 bg-white hover:bg-slate-50 text-slate-700 text-lg font-semibold rounded-xl border-2 border-slate-200 hover:border-blue-300 transition-all">
                   Voir une vraie démo
                 </a>
               </div>
 
-              <div className="flex flex-wrap items-center justify-center gap-6 pt-8 text-sm text-slate-500">
+              <div className="grid grid-cols-1 gap-3 pt-6 text-sm text-slate-500 sm:grid-cols-3 sm:gap-4">
                 <div className="flex items-center gap-2">
                   <svg className="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
@@ -446,7 +453,7 @@ function LandingPage() {
         {/* NEW: Animated Stats Section - TRUST BUILDER */}
         <section className="py-16 bg-white border-y border-slate-200">
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 md:grid-cols-4">
+            <div className="grid grid-cols-2 gap-6 sm:grid-cols-2 md:grid-cols-4">
               
               <div className="text-center group">
                 <div className="text-4xl md:text-5xl font-black bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent mb-2 group-hover:scale-110 transition-transform">
@@ -1253,7 +1260,7 @@ function LandingPage() {
               to="/register"
               className="inline-block px-10 py-5 bg-white text-blue-600 text-lg font-bold rounded-xl shadow-2xl hover:shadow-3xl hover:scale-105 transition-all"
             >
-              Créer mon espace revendeur
+              Créer mon espace
             </Link>
             <p className="mt-4 text-sm text-blue-200">
               Mise en route rapide · Portail client inclus · Support local
@@ -1628,5 +1635,3 @@ function ArabicLandingPage() {
 }
 
 export default LandingPage;
-
-

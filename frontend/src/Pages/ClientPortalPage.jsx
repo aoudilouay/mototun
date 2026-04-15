@@ -20,11 +20,26 @@ import {
   resolveDocumentPreviewKind
 } from '../features/documents/documentPreview';
 
+const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+const ALLOWED_UPLOAD_EXTENSIONS = new Set(['pdf', 'png', 'jpg', 'jpeg', 'webp', 'bmp', 'jfif', 'heic', 'heif', 'avif']);
+
+function getFileExtension(fileName) {
+  const name = String(fileName || '');
+  const lastDot = name.lastIndexOf('.');
+  if (lastDot < 0) {
+    return '';
+  }
+
+  return name.slice(lastDot + 1).toLowerCase();
+}
+
 function ClientPortalPage() {
   const [portalCode, setPortalCode] = useState('');
   const [sessionCode, setSessionCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [uploadingType, setUploadingType] = useState(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadSuccess, setUploadSuccess] = useState('');
   const [error, setError] = useState('');
   const [dossier, setDossier] = useState(null);
   const [preview, setPreview] = useState({
@@ -87,15 +102,37 @@ function ClientPortalPage() {
       return;
     }
 
+    const fileExtension = getFileExtension(file.name);
+    if (!ALLOWED_UPLOAD_EXTENSIONS.has(fileExtension)) {
+      setUploadSuccess('');
+      setError('Format non pris en charge. Ajoutez un PDF ou une photo (JPG, PNG, WEBP, BMP, JFIF, HEIC/HEIF, AVIF).');
+      return;
+    }
+
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setUploadSuccess('');
+      setError('Le fichier est trop grand. Taille maximale : 50 Mo.');
+      return;
+    }
+
     setError('');
+    setUploadSuccess('');
     setUploadingType(documentType);
+    setUploadProgress(0);
 
     try {
       const preparedUpload = await optimizeDocumentImageUpload(file);
-      await clientPortalService.uploadDocument(dossier.invoiceId, sessionCode, documentType, preparedUpload.file);
+      await clientPortalService.uploadDocument(dossier.invoiceId, sessionCode, documentType, preparedUpload.file, {
+        onProgress: (percent) => {
+          setUploadProgress(percent);
+        }
+      });
+      setUploadProgress(100);
       await refreshDossier();
+      setUploadSuccess('Document ajoute avec succes.');
     } catch (uploadError) {
-      setError(uploadError.message || 'Upload impossible.');
+      setUploadSuccess('');
+      setError(uploadError.message || 'Impossible d envoyer le document.');
     } finally {
       setUploadingType(null);
     }
@@ -106,6 +143,8 @@ function ClientPortalPage() {
     setSessionCode('');
     setPortalCode('');
     setError('');
+    setUploadSuccess('');
+    setUploadProgress(0);
   };
 
   const closePreview = () => {
@@ -239,14 +278,14 @@ function ClientPortalPage() {
               <span className="text-xl font-bold text-slate-900">Espace Client</span>
             </Link>
             <p className="text-sm text-slate-600">
-              Saisissez le code d'acces partage par votre revendeur.
+              Entrez le code partage par votre revendeur.
             </p>
           </div>
 
           <form onSubmit={handleAccess} className="space-y-4">
             <div>
               <label htmlFor="portal-code" className="block text-sm font-semibold text-slate-700 mb-2">
-                Code d'acces
+                Votre code
               </label>
               <input
                 id="portal-code"
@@ -257,6 +296,9 @@ function ClientPortalPage() {
                 className="w-full px-4 py-3 border border-slate-300 rounded-xl uppercase tracking-wide focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 required
               />
+              <p className="mt-2 text-xs text-slate-500">
+                Formats acceptes: PDF, JPG, PNG, WEBP, BMP, JFIF, HEIC/HEIF, AVIF. Taille max: 50 Mo.
+              </p>
             </div>
 
             {error && (
@@ -270,7 +312,7 @@ function ClientPortalPage() {
               disabled={loading}
               className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl disabled:opacity-60"
             >
-              {loading ? 'Verification...' : 'Acceder a mon dossier'}
+              {loading ? 'Verification...' : 'Ouvrir mon dossier'}
             </button>
           </form>
 
@@ -290,6 +332,25 @@ function ClientPortalPage() {
         {error && (
           <div className="px-4 py-3 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-sm">
             {error}
+          </div>
+        )}
+
+        {uploadSuccess && (
+          <div className="px-4 py-3 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm" role="status" aria-live="polite">
+            {uploadSuccess}
+          </div>
+        )}
+
+        {uploadingType !== null && (
+          <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3" role="status" aria-live="polite">
+            <div className="flex items-center justify-between gap-3 text-sm font-medium text-blue-800">
+              <span>Envoi du document...</span>
+              <span>{uploadProgress}%</span>
+            </div>
+            <div className="mt-2 h-2 overflow-hidden rounded-full bg-blue-100">
+              <div className="h-full rounded-full bg-blue-600 transition-all duration-200" style={{ width: `${uploadProgress}%` }} />
+            </div>
+            <p className="mt-2 text-xs text-blue-700">Gardez cette page ouverte jusqu a la fin de l envoi.</p>
           </div>
         )}
 
@@ -403,8 +464,9 @@ function ClientPortalPage() {
                   <p className="mt-2 text-sm text-slate-500">Document prioritaire</p>
                   <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3">
                     <p className="text-2xl font-extrabold tracking-tight text-rose-600 sm:text-3xl">{nextRequiredDocument.label}</p>
-                    <p className="mt-1 text-xs font-medium text-rose-700">{missingRequiredDocuments.length} document(s) manquant(s)</p>
+                    <p className="mt-1 text-xs font-medium text-rose-700">{missingRequiredDocuments.length} document(s) a ajouter</p>
                   </div>
+                  <p className="mt-3 text-sm text-slate-600">PDF ou photo nette, jusqu a 50 Mo. Les grosses photos sont reduites avant l envoi.</p>
 
                   <input
                     id="quick-upload-next-document"
@@ -423,13 +485,13 @@ function ClientPortalPage() {
                     htmlFor="quick-upload-next-document"
                     className="mt-4 inline-flex w-full cursor-pointer items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3 text-base font-semibold text-white shadow-[0_10px_24px_rgba(37,99,235,0.35)] hover:from-blue-700 hover:to-indigo-700 sm:text-lg"
                   >
-                    {uploadingType === nextRequiredDocument.value ? 'Upload...' : 'Uploader maintenant'}
+                    {uploadingType === nextRequiredDocument.value ? 'Envoi...' : 'Ajouter ce document'}
                   </label>
                 </>
               ) : (
                 <>
                   <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-3">
-                    <p className="text-sm font-semibold text-emerald-800">Tous les documents requis sont recus.</p>
+                    <p className="text-sm font-semibold text-emerald-800">Tous les documents demandes sont bien recus.</p>
                     <p className="mt-1 text-xs text-emerald-700">Votre dossier continue automatiquement vers la prochaine etape.</p>
                   </div>
                   <button
@@ -449,7 +511,10 @@ function ClientPortalPage() {
           <article className="bg-white border border-slate-200 rounded-[24px] shadow-[0_12px_28px_rgba(15,23,42,0.08)] p-5 sm:p-6">
             <h2 className="text-2xl font-bold text-slate-900">Documents</h2>
             <p className="mt-1 text-lg text-slate-500">
-              Gerez vos {CLIENT_PORTAL_DOCUMENT_TYPES.length} documents. Chaque tile indique l'etat et l'action possible.
+              Ajoutez vos {CLIENT_PORTAL_DOCUMENT_TYPES.length} documents. Chaque bloc vous dit quoi faire ensuite.
+            </p>
+            <p className="mt-2 text-sm text-slate-500">
+              Formats acceptes : PDF ou photo. Taille maximum : 50 Mo.
             </p>
 
             <div className="mt-5 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -479,7 +544,7 @@ function ClientPortalPage() {
                           </p>
                         </>
                       ) : (
-                        <p className="text-base text-slate-500">Aucun fichier</p>
+                        <p className="text-base text-slate-500">Pas encore ajoute</p>
                       )}
                     </div>
 
@@ -515,7 +580,7 @@ function ClientPortalPage() {
                         htmlFor={inputId}
                         className="inline-flex w-full flex-1 cursor-pointer items-center justify-center rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white hover:from-blue-700 hover:to-indigo-700 sm:w-auto sm:text-base"
                       >
-                        {isUploading ? 'Upload...' : existing ? 'Remplacer' : 'Uploader'}
+                        {isUploading ? 'Envoi...' : existing ? 'Remplacer le document' : 'Ajouter un document'}
                       </label>
                     </div>
                   </div>
