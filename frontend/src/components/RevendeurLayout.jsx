@@ -752,19 +752,52 @@ function RevendeurLayout() {
                 </button>
 
                 {showUserMenu && (
-                  <div className={`absolute mt-2 w-[min(14rem,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white py-2 shadow-xl ${isArabic ? 'left-0' : 'right-0'}`}>
+                  <div className={`absolute mt-2 w-[min(16rem,calc(100vw-2rem))] overflow-hidden rounded-[24px] border border-white/80 bg-white/95 p-2 shadow-[0_24px_60px_rgba(15,23,42,0.16)] backdrop-blur-2xl ${isArabic ? 'left-0' : 'right-0'}`}>
+                    <div className="mb-2 rounded-[20px] border border-cyan-100/80 bg-[radial-gradient(circle_at_top_left,_rgba(103,232,249,0.20),_transparent_60%),linear-gradient(135deg,_rgba(248,252,255,0.98),_rgba(255,255,255,0.96))] px-3 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-700/80">Compte</p>
+                      <p className="mt-1 truncate text-sm font-bold text-slate-900">{displayName}</p>
+                      <p className="truncate text-xs text-slate-500">{userCity || 'Tunisia'}</p>
+                    </div>
                     <Link
                       to="/revendeur/profile"
-                      className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                      className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                       onClick={() => setShowUserMenu(false)}
                     >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm">
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M20 21a8 8 0 1 0-16 0" />
+                          <circle cx="12" cy="7" r="4" />
+                        </svg>
+                      </span>
                       {t('common.profile')}
                     </Link>
-                    <div className="my-2 border-t border-slate-200" />
+                    <Link
+                      to="/revendeur/support"
+                      className="mt-1 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-cyan-50"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-100 bg-cyan-50 text-cyan-700 shadow-sm">
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M6.2 8a6 6 0 0 1 11.6 0" />
+                          <path d="M4 10.5A2.5 2.5 0 0 1 6.5 8h.2v6h-.2A2.5 2.5 0 0 1 4 11.5v-1z" />
+                          <path d="M20 10.5A2.5 2.5 0 0 0 17.5 8h-.2v6h.2a2.5 2.5 0 0 0 2.5-2.5v-1z" />
+                          <path d="M12 18v1a2 2 0 0 1-2 2h-1" />
+                        </svg>
+                      </span>
+                      Support
+                    </Link>
+                    <div className="my-2 border-t border-slate-200/80" />
                     <button
                       onClick={handleLogout}
-                      className="w-full px-4 py-2 text-left text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
                     >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-white text-rose-500 shadow-sm">
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                          <path d="M16 17l5-5-5-5" />
+                          <path d="M21 12H9" />
+                        </svg>
+                      </span>
                       {t('common.logout')}
                     </button>
                   </div>

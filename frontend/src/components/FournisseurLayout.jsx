@@ -713,26 +713,65 @@ function FournisseurLayout() {
                 </button>
 
                 {showUserMenu && (
-                  <div className={`absolute mt-2 w-[min(14rem,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white py-2 shadow-xl ${isArabic ? 'left-0' : 'right-0'}`}>
+                  <div className={`absolute mt-2 w-[min(16rem,calc(100vw-2rem))] overflow-hidden rounded-[24px] border border-white/80 bg-white/95 p-2 shadow-[0_24px_60px_rgba(15,23,42,0.16)] backdrop-blur-2xl ${isArabic ? 'left-0' : 'right-0'}`}>
+                    <div className="mb-2 rounded-[20px] border border-emerald-100/80 bg-[radial-gradient(circle_at_top_left,_rgba(110,231,183,0.20),_transparent_60%),linear-gradient(135deg,_rgba(247,253,250,0.98),_rgba(255,255,255,0.96))] px-3 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-700/80">Compte</p>
+                      <p className="mt-1 truncate text-sm font-bold text-slate-900">{displayName}</p>
+                      <p className="truncate text-xs text-slate-500">{userCity || 'Tunisia'}</p>
+                    </div>
                     <Link
                       to="/fournisseur/profile"
-                      className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                      className="flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                       onClick={() => setShowUserMenu(false)}
                     >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm">
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M20 21a8 8 0 1 0-16 0" />
+                          <circle cx="12" cy="7" r="4" />
+                        </svg>
+                      </span>
                       {t('common.profile')}
                     </Link>
                     <Link
                       to="/fournisseur/settings"
-                      className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                      className="mt-1 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
                       onClick={() => setShowUserMenu(false)}
                     >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500 shadow-sm">
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <circle cx="12" cy="12" r="3" />
+                          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 5 15.4a1.65 1.65 0 0 0-1.51-1H3.4a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 5 8.89a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9.11 5c.67-.28 1.11-.93 1.11-1.65V3.4a2 2 0 1 1 4 0v.09c0 .72.44 1.37 1.11 1.65.67.28 1.44.13 1.95-.38l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06c-.51.51-.66 1.28-.38 1.95.28.67.93 1.11 1.65 1.11h.09a2 2 0 1 1 0 4h-.09c-.72 0-1.37.44-1.65 1.11z" />
+                        </svg>
+                      </span>
                       {t('common.settings')}
                     </Link>
-                    <div className="my-2 border-t border-slate-200" />
+                    <Link
+                      to="/fournisseur/support"
+                      className="mt-1 flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:bg-emerald-50"
+                      onClick={() => setShowUserMenu(false)}
+                    >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-emerald-100 bg-emerald-50 text-emerald-700 shadow-sm">
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M6.2 8a6 6 0 0 1 11.6 0" />
+                          <path d="M4 10.5A2.5 2.5 0 0 1 6.5 8h.2v6h-.2A2.5 2.5 0 0 1 4 11.5v-1z" />
+                          <path d="M20 10.5A2.5 2.5 0 0 0 17.5 8h-.2v6h.2a2.5 2.5 0 0 0 2.5-2.5v-1z" />
+                          <path d="M12 18v1a2 2 0 0 1-2 2h-1" />
+                        </svg>
+                      </span>
+                      Support
+                    </Link>
+                    <div className="my-2 border-t border-slate-200/80" />
                     <button
                       onClick={handleLogout}
-                      className="w-full px-4 py-2 text-left text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                      className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-medium text-rose-600 transition-colors hover:bg-rose-50"
                     >
+                      <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-rose-100 bg-white text-rose-500 shadow-sm">
+                        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                          <path d="M16 17l5-5-5-5" />
+                          <path d="M21 12H9" />
+                        </svg>
+                      </span>
                       {t('common.logout')}
                     </button>
                   </div>
