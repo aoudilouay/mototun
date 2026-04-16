@@ -1010,48 +1010,6 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     });
   };
 
-  useEffect(() => {
-    if (!emailModal.open || !emailModal.invoiceId) {
-      return;
-    }
-
-    const dossier = dossiers.find((item) => item.invoiceId === emailModal.invoiceId);
-    if (!dossier) {
-      return;
-    }
-
-    const fournisseurName = emailModal.fournisseurName || dossier.assignedFournisseurName || '';
-    const nextSubject = buildFournisseurEmailSubject(dossier, fournisseurName);
-    const nextMessage = buildFournisseurEmailNote(dossier, fournisseurName);
-    const nextRecipient = emailModal.to || dossier.assignedFournisseurEmail || '';
-
-    if (
-      emailModal.subject === nextSubject
-      && emailModal.message === nextMessage
-      && emailModal.to === nextRecipient
-    ) {
-      return;
-    }
-
-    setEmailModal((prev) => ({
-      ...prev,
-      fournisseurName,
-      to: nextRecipient,
-      subject: nextSubject,
-      message: nextMessage,
-    }));
-  }, [
-    buildFournisseurEmailNote,
-    buildFournisseurEmailSubject,
-    dossiers,
-    emailModal.fournisseurName,
-    emailModal.invoiceId,
-    emailModal.message,
-    emailModal.open,
-    emailModal.subject,
-    emailModal.to,
-  ]);
-
   const closeEmailModal = () => {
     setEmailModal((prev) => ({ ...prev, open: false }));
   };
