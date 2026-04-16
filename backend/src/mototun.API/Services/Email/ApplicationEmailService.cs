@@ -21,7 +21,7 @@ public sealed class ApplicationEmailService : IApplicationEmailService
         int expiryMinutes,
         CancellationToken cancellationToken = default)
     {
-        var subject = "Reset your Mototun password";
+        var subject = "Reset your Tunimoto password";
         var html = await _templateRenderer.RenderAsync(
             "PasswordResetTemplate",
             CreateBasePlaceholders(new Dictionary<string, string?>
@@ -29,7 +29,7 @@ public sealed class ApplicationEmailService : IApplicationEmailService
                 ["USER_NAME"] = EncodeInlineText(userName, "there"),
                 ["RESET_LINK"] = EncodeInlineText(resetLink),
                 ["EXPIRY_MINUTES"] = expiryMinutes.ToString(CultureInfo.InvariantCulture),
-                ["MESSAGE"] = EncodeMultilineText("We received a request to reset your Mototun password.")
+                ["MESSAGE"] = EncodeMultilineText("We received a request to reset your Tunimoto password.")
             }),
             cancellationToken);
 
@@ -42,7 +42,7 @@ public sealed class ApplicationEmailService : IApplicationEmailService
         string? accountRole,
         CancellationToken cancellationToken = default)
     {
-        var subject = "Welcome to Mototun";
+        var subject = "Welcome to Tunimoto";
         var roleMessage = string.IsNullOrWhiteSpace(accountRole)
             ? "Your account is ready."
             : $"Your {accountRole.Trim()} account is ready.";
@@ -52,7 +52,7 @@ public sealed class ApplicationEmailService : IApplicationEmailService
             CreateBasePlaceholders(new Dictionary<string, string?>
             {
                 ["USER_NAME"] = EncodeInlineText(userName, "there"),
-                ["MESSAGE"] = EncodeMultilineText($"{roleMessage} You can now sign in and continue your workflow in Mototun.")
+                ["MESSAGE"] = EncodeMultilineText($"{roleMessage} You can now sign in and continue your workflow in Tunimoto.")
             }),
             cancellationToken);
 
@@ -86,7 +86,7 @@ public sealed class ApplicationEmailService : IApplicationEmailService
         string? message,
         CancellationToken cancellationToken = default)
     {
-        var subject = $"Your Mototun invoice {invoiceId}";
+        var subject = $"Your Tunimoto invoice {invoiceId}";
         var html = await _templateRenderer.RenderAsync(
             "InvoiceTemplate",
             CreateBasePlaceholders(new Dictionary<string, string?>
@@ -94,7 +94,7 @@ public sealed class ApplicationEmailService : IApplicationEmailService
                 ["USER_NAME"] = EncodeInlineText(userName, "there"),
                 ["INVOICE_ID"] = EncodeInlineText(invoiceId),
                 ["AMOUNT"] = WebUtility.HtmlEncode(amount.ToString("N2", CultureInfo.InvariantCulture)),
-                ["MESSAGE"] = EncodeMultilineText(message ?? "Your invoice has been created and is now available in Mototun.")
+                ["MESSAGE"] = EncodeMultilineText(message ?? "Your invoice has been created and is now available in Tunimoto.")
             }),
             cancellationToken);
 

@@ -58,7 +58,7 @@ public sealed class ResendEmailSender : IEmailSender
             throw new InvalidOperationException("Resend email is not configured. Set Resend ApiKey and SenderEmail.");
         }
 
-        var senderName = string.IsNullOrWhiteSpace(_options.SenderName) ? "Mototun" : _options.SenderName.Trim();
+        var senderName = string.IsNullOrWhiteSpace(_options.SenderName) ? "Tunimoto" : _options.SenderName.Trim();
         var resendAttachments = BuildAttachments(attachments);
         var payload = new Dictionary<string, object?>
         {

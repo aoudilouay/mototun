@@ -277,7 +277,7 @@ function buildPortalMessages(
   if (dossier.clientUpdateMessage) {
     messages.push({
       id: 'agent-update',
-      sender: 'Agent Mototun',
+      sender: 'Agent Tunimoto',
       tone: 'agent',
       text: dossier.clientUpdateMessage,
       createdAt: dossier.clientUpdateUpdatedAt || dossier.updatedAt

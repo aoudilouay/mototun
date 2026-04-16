@@ -97,6 +97,7 @@ public class InvoicesController : ControllerBase
     private readonly IInvoiceSettingsService _invoiceSettingsService;
     private readonly IFileStorage _fileStorage;
     private readonly ILogger<InvoicesController> _logger;
+    private readonly IConfiguration _configuration;
 
     public InvoicesController(
         ApplicationDbContext context,
@@ -108,7 +109,8 @@ public class InvoicesController : ControllerBase
         IInvoicePdfSettingsStore invoicePdfSettingsStore,
         IInvoiceSettingsService invoiceSettingsService,
         IFileStorage fileStorage,
-        ILogger<InvoicesController> logger)
+        ILogger<InvoicesController> logger,
+        IConfiguration configuration)
     {
         _context = context;
         _environment = environment;
@@ -120,6 +122,7 @@ public class InvoicesController : ControllerBase
         _invoiceSettingsService = invoiceSettingsService;
         _fileStorage = fileStorage;
         _logger = logger;
+        _configuration = configuration;
     }
 
     [HttpGet]
@@ -1824,31 +1827,14 @@ public class InvoicesController : ControllerBase
             return Forbid();
         }
 
-        if (string.IsNullOrWhiteSpace(dto.To))
-        {
-            return BadRequest(new ApiResponse<object>
-            {
-                Success = false,
-                Message = "Email destinataire requis"
-            });
-        }
-
-        var recipient = dto.To.Trim();
-        if (!IsValidEmail(recipient))
-        {
-            return BadRequest(new ApiResponse<object>
-            {
-                Success = false,
-                Message = "Email destinataire invalide"
-            });
-        }
-
         var invoice = await _context.Invoices
             .Include(i => i.Client)
             .Include(i => i.Revendeur)
                 .ThenInclude(r => r.User)
             .Include(i => i.SoldMotorcycles)
             .Include(i => i.ClientPortalDocuments)
+            .Include(i => i.AssignedFournisseur)
+                .ThenInclude(f => f!.User)
             .FirstOrDefaultAsync(i => i.Id == id && i.RevendeurId == revendeurId.Value);
 
         if (invoice is null)
@@ -1860,15 +1846,48 @@ public class InvoicesController : ControllerBase
             });
         }
 
+        Fournisseur? fournisseur = null;
+        if (dto.FournisseurId.HasValue && dto.FournisseurId.Value > 0)
+        {
+            fournisseur = await _context.Fournisseurs
+                .Include(f => f.User)
+                .FirstOrDefaultAsync(f => f.Id == dto.FournisseurId.Value);
+        }
+
+        fournisseur ??= invoice.AssignedFournisseur;
+
+        var recipient = string.IsNullOrWhiteSpace(dto.To)
+            ? fournisseur?.User?.Email?.Trim() ?? string.Empty
+            : dto.To.Trim();
+
+        if (string.IsNullOrWhiteSpace(recipient))
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Email fournisseur requis"
+            });
+        }
+
+        if (!IsValidEmail(recipient))
+        {
+            return BadRequest(new ApiResponse<object>
+            {
+                Success = false,
+                Message = "Email fournisseur invalide"
+            });
+        }
+
         var sold = invoice.SoldMotorcycles
             .OrderByDescending(s => s.CreatedAt)
             .FirstOrDefault();
 
+        var fournisseurName = fournisseur?.BusinessName?.Trim();
         var subject = string.IsNullOrWhiteSpace(dto.Subject)
-            ? $"Dossier Carte Grise - {invoice.InvoiceNumber}"
+            ? BuildSupplierDossierEmailSubject(invoice, fournisseurName)
             : dto.Subject.Trim();
 
-        var htmlBody = BuildDossierEmailHtml(invoice, sold, dto.Message);
+        var htmlBody = BuildDossierEmailHtml(invoice, sold, dto.Message, fournisseurName, BuildFournisseurDossierUrl(invoice));
         var attachments = await BuildDossierEmailAttachmentsAsync(invoice, HttpContext.RequestAborted);
         try
         {
@@ -1898,8 +1917,8 @@ public class InvoicesController : ControllerBase
             EventType = InvoiceTimelineEventType.DossierEmailSent,
             ActorUserId = currentUserId,
             ActorRole = UserRole.Revendeur,
-            Title = "Email dossier envoye",
-            Message = $"Email envoye a {recipient}",
+            Title = "Email fournisseur envoye",
+            Message = $"Email dossier envoye au fournisseur {recipient}",
             CreatedAt = eventAt
         });
 
@@ -1917,11 +1936,13 @@ public class InvoicesController : ControllerBase
         return Ok(new ApiResponse<object>
         {
             Success = true,
-            Message = "Email envoye avec succes",
+            Message = "Email fournisseur envoye avec succes",
             Data = new
             {
                 invoiceId = invoice.Id,
-                to = recipient
+                to = recipient,
+                fournisseurId = fournisseur?.Id,
+                fournisseurBusinessName = fournisseur?.BusinessName
             }
         });
     }
@@ -4550,7 +4571,7 @@ public class InvoicesController : ControllerBase
                 client.FullName,
                 string.IsNullOrWhiteSpace(invoice.InvoiceNumber) ? invoice.Id.ToString() : invoice.InvoiceNumber,
                 invoice.TotalAmount,
-                "Your invoice has been created successfully in Mototun.",
+                "Your invoice has been created successfully in Tunimoto.",
                 cancellationToken);
         }
         catch (Exception ex)
@@ -4617,7 +4638,45 @@ public class InvoicesController : ControllerBase
         }
     }
 
-    private static string BuildDossierEmailHtml(Invoice invoice, SoldMotorcycle? sold, string? customMessage)
+    private string BuildSupplierDossierEmailSubject(Invoice invoice, string? fournisseurName)
+    {
+        var reference = string.IsNullOrWhiteSpace(invoice.InvoiceNumber)
+            ? $"CG-{invoice.Id}"
+            : invoice.InvoiceNumber.Trim();
+
+        return string.IsNullOrWhiteSpace(fournisseurName)
+            ? $"Tunimoto | Nouveau dossier carte grise {reference}"
+            : $"Tunimoto | Nouveau dossier carte grise {reference} pour {fournisseurName.Trim()}";
+    }
+
+    private string? BuildFournisseurDossierUrl(Invoice invoice)
+    {
+        var baseUrl = BuildFrontendBaseUrl();
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            return null;
+        }
+
+        return $"{baseUrl}/fournisseur/carte-grise?invoiceId={invoice.Id}";
+    }
+
+    private string? BuildFrontendBaseUrl()
+    {
+        var configuredResetUrl = _configuration["AuthSettings:PasswordResetUrl"]?.Trim();
+        if (Uri.TryCreate(configuredResetUrl, UriKind.Absolute, out var resetUri))
+        {
+            return resetUri.GetLeftPart(UriPartial.Authority).TrimEnd('/');
+        }
+
+        var configuredOrigins = _configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+        var fallbackOrigin = configuredOrigins
+            .Select(origin => origin?.Trim())
+            .FirstOrDefault(origin => Uri.TryCreate(origin, UriKind.Absolute, out _));
+
+        return string.IsNullOrWhiteSpace(fallbackOrigin) ? null : fallbackOrigin.TrimEnd('/');
+    }
+
+    private static string BuildDossierEmailHtml(Invoice invoice, SoldMotorcycle? sold, string? customMessage, string? fournisseurName, string? dossierUrl)
     {
         var docs = invoice.ClientPortalDocuments
             .OrderByDescending(d => d.UpdatedAt)
@@ -4631,6 +4690,14 @@ public class InvoicesController : ControllerBase
         var hasCinBack = docs.Any(d => d.DocumentType == ClientPortalDocumentType.CinBack);
         var hasFacture = docs.Any(d => d.DocumentType == ClientPortalDocumentType.Facture);
         var hasDeclaration = docs.Any(d => d.DocumentType == ClientPortalDocumentType.DeclarationImpot);
+        var documentStatuses = new[]
+        {
+            hasCinFront || hasLegacyCin,
+            hasCinBack || hasLegacyCin,
+            hasFacture,
+            hasDeclaration
+        };
+        var receivedCount = documentStatuses.Count(status => status);
 
         var rows = new StringBuilder();
         rows.AppendLine(BuildDocumentRow("CIN (recto)", hasCinFront || hasLegacyCin));
@@ -4638,58 +4705,115 @@ public class InvoicesController : ControllerBase
         rows.AppendLine(BuildDocumentRow("Facture", hasFacture));
         rows.AppendLine(BuildDocumentRow("Declaration d'impot", hasDeclaration));
 
+        var revendeurName = !string.IsNullOrWhiteSpace(invoice.Revendeur?.BusinessName)
+            ? invoice.Revendeur.BusinessName.Trim()
+            : !string.IsNullOrWhiteSpace(invoice.Revendeur?.User?.FullName)
+                ? invoice.Revendeur.User.FullName.Trim()
+                : "revendeur partenaire";
+
+        var safeFournisseurName = string.IsNullOrWhiteSpace(fournisseurName)
+            ? "partenaire"
+            : fournisseurName.Trim();
+
+        var clientName = string.IsNullOrWhiteSpace(invoice.Client?.FullName)
+            ? "-"
+            : invoice.Client.FullName.Trim();
+
+        var vehicleInfo = string.Join(" ", new[] { sold?.Company, sold?.Brand, sold?.Model }
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim()));
+
+        if (string.IsNullOrWhiteSpace(vehicleInfo))
+        {
+            vehicleInfo = "Moto non renseignee";
+        }
+
+        var chassis = string.IsNullOrWhiteSpace(sold?.ChassisNumber) ? "-" : sold!.ChassisNumber.Trim();
+        var reference = string.IsNullOrWhiteSpace(invoice.InvoiceNumber) ? $"CG-{invoice.Id}" : invoice.InvoiceNumber.Trim();
+        var amountText = invoice.TotalAmount > 0 ? $"{invoice.TotalAmount:0.000} TND" : "Selon facture jointe";
         var safeCustom = string.IsNullOrWhiteSpace(customMessage)
             ? string.Empty
-            : $"<p style=\"margin:16px 0 0 0;color:#334155;line-height:1.7;\">{System.Net.WebUtility.HtmlEncode(customMessage).Replace("\n", "<br/>")}</p>";
+            : $"""
+          <div style="margin-top:18px;border-radius:14px;border:1px solid #dbeafe;background:#eff6ff;padding:16px 18px;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;">Note du revendeur</div>
+            <p style="margin:10px 0 0 0;color:#1e293b;line-height:1.7;">{System.Net.WebUtility.HtmlEncode(customMessage).Replace("\n", "<br/>")}</p>
+          </div>
+""";
+
+        var ctaHtml = string.IsNullOrWhiteSpace(dossierUrl)
+            ? string.Empty
+            : $"""
+          <div style="margin-top:24px;">
+            <a href="{System.Net.WebUtility.HtmlEncode(dossierUrl)}" style="display:inline-block;border-radius:999px;background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:14px 24px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">
+              Acceder au dossier
+            </a>
+          </div>
+""";
 
         return $"""
 <!doctype html>
 <html lang="fr">
-  <body style="margin:0;padding:24px;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #dbeafe;border-radius:16px;overflow:hidden;">
+  <body style="margin:0;padding:24px;background:#eaf1fb;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #dbeafe;border-radius:22px;overflow:hidden;box-shadow:0 18px 40px rgba(37,99,235,0.10);">
       <tr>
-        <td style="background:linear-gradient(90deg,#0ea5e9,#2563eb);padding:20px 24px;color:#ffffff;">
-          <div style="font-size:12px;letter-spacing:1.4px;text-transform:uppercase;opacity:.9;">Mototun - Dossier Carte Grise</div>
-          <div style="margin-top:8px;font-size:22px;font-weight:700;">Facture {System.Net.WebUtility.HtmlEncode(invoice.InvoiceNumber)}</div>
+        <td style="padding:0;">
+          <div style="background:linear-gradient(135deg,#0f172a 0%,#1d4ed8 55%,#38bdf8 100%);padding:26px 28px;color:#ffffff;">
+            <div style="font-size:12px;letter-spacing:1.8px;text-transform:uppercase;opacity:.88;">Tunimoto</div>
+            <div style="margin-top:10px;font-size:24px;font-weight:700;line-height:1.3;">Nouveau dossier carte grise a traiter</div>
+            <div style="margin-top:8px;font-size:14px;line-height:1.7;opacity:.92;">
+              Ce dossier vous a ete transmis par le revendeur {System.Net.WebUtility.HtmlEncode(revendeurName)} via la plateforme Tunimoto.
+            </div>
+          </div>
         </td>
       </tr>
       <tr>
-        <td style="padding:24px;">
-          <p style="margin:0;color:#334155;line-height:1.7;">Bonjour,</p>
-          <p style="margin:12px 0 0 0;color:#334155;line-height:1.7;">
-            Veuillez trouver ci-dessous le recapitulatif du dossier carte grise.
+        <td style="padding:28px;">
+          <p style="margin:0;color:#334155;line-height:1.7;">Bonjour {System.Net.WebUtility.HtmlEncode(safeFournisseurName)},</p>
+          <p style="margin:14px 0 0 0;color:#334155;line-height:1.8;">
+            Vous avez recu un nouveau dossier carte grise via Tunimoto. La plateforme vous aide a centraliser les dossiers, accelerer le traitement et mieux suivre les échanges entre revendeurs et fournisseurs.
           </p>
+
+          <div style="margin-top:20px;border-radius:18px;border:1px solid #dbeafe;background:linear-gradient(180deg,#f8fbff 0%,#eef6ff 100%);padding:18px 20px;">
+            <div style="display:inline-block;border-radius:999px;background:#dbeafe;padding:6px 12px;color:#1d4ed8;font-size:12px;font-weight:700;letter-spacing:.4px;">Reference dossier</div>
+            <div style="margin-top:10px;font-size:24px;font-weight:700;color:#0f172a;">{System.Net.WebUtility.HtmlEncode(reference)}</div>
+            <div style="margin-top:8px;color:#475569;font-size:14px;line-height:1.7;">
+              Client: <strong style="color:#0f172a;">{System.Net.WebUtility.HtmlEncode(clientName)}</strong><br/>
+              Moto / vehicule: <strong style="color:#0f172a;">{System.Net.WebUtility.HtmlEncode(vehicleInfo)}</strong><br/>
+              Chassis: <strong style="color:#0f172a;">{System.Net.WebUtility.HtmlEncode(chassis)}</strong><br/>
+              Montant: <strong style="color:#0f172a;">{System.Net.WebUtility.HtmlEncode(amountText)}</strong>
+            </div>
+          </div>
+
           {safeCustom}
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:18px;border-collapse:collapse;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
-            <tr style="background:#eff6ff;">
-              <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#1e3a8a;">Client</td>
-              <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#0f172a;">{System.Net.WebUtility.HtmlEncode(invoice.Client.FullName)}</td>
-            </tr>
-            <tr>
-              <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#1e3a8a;">Moto</td>
-              <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#0f172a;">{System.Net.WebUtility.HtmlEncode($"{sold?.Company} {sold?.Brand} {sold?.Model}".Trim())}</td>
-            </tr>
-            <tr>
-              <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;font-weight:700;color:#1e3a8a;">Chassis</td>
-              <td style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#0f172a;">{System.Net.WebUtility.HtmlEncode(sold?.ChassisNumber ?? "-")}</td>
-            </tr>
-            <tr>
-              <td style="padding:10px 12px;font-weight:700;color:#1e3a8a;">Montant</td>
-              <td style="padding:10px 12px;color:#0f172a;">{invoice.TotalAmount:0.000} TND</td>
-            </tr>
-          </table>
 
-          <h3 style="margin:20px 0 10px 0;color:#0f172a;font-size:16px;">Etat des documents</h3>
-          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;">
-            <tr style="background:#f8fafc;">
-              <th align="left" style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:12px;text-transform:uppercase;letter-spacing:.7px;">Document</th>
-              <th align="left" style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:12px;text-transform:uppercase;letter-spacing:.7px;">Statut</th>
-            </tr>
-            {rows}
-          </table>
+          <div style="margin-top:22px;border-radius:18px;border:1px solid #e2e8f0;background:#ffffff;padding:18px 20px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+              <h3 style="margin:0;color:#0f172a;font-size:17px;">Etat des documents recus</h3>
+              <div style="border-radius:999px;background:#ecfeff;padding:8px 12px;color:#0f766e;font-size:12px;font-weight:700;">
+                {receivedCount}/4 documents recus
+              </div>
+            </div>
+            <p style="margin:10px 0 16px 0;color:#64748b;font-size:13px;line-height:1.7;">
+              Les pieces les plus recentes sont jointes a cet email pour vous faire gagner du temps au demarrage du traitement.
+            </p>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+              <tr style="background:#f8fafc;">
+                <th align="left" style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:12px;text-transform:uppercase;letter-spacing:.7px;">Document</th>
+                <th align="left" style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:12px;text-transform:uppercase;letter-spacing:.7px;">Statut</th>
+              </tr>
+              {rows}
+            </table>
+          </div>
 
-          <p style="margin:20px 0 0 0;color:#64748b;font-size:12px;line-height:1.6;">
-            Message automatique envoye par Mototun. Merci de ne pas repondre directement a cet email.
+          {ctaHtml}
+
+          <p style="margin:24px 0 0 0;color:#475569;line-height:1.8;">
+            Si un document manque ou si une verification supplementaire est necessaire, vous pouvez revenir vers le revendeur directement depuis votre espace fournisseur Tunimoto.
+          </p>
+
+          <p style="margin:24px 0 0 0;padding-top:18px;border-top:1px solid #e2e8f0;color:#64748b;font-size:12px;line-height:1.8;">
+            Cet email a ete envoye automatiquement via Tunimoto par le revendeur {System.Net.WebUtility.HtmlEncode(revendeurName)}.<br/>
+            Merci de ne pas repondre directement a cet email systeme.
           </p>
         </td>
       </tr>
@@ -4920,6 +5044,7 @@ public class InvoicesController : ControllerBase
     public class SendDossierEmailDto
     {
         public string To { get; set; } = string.Empty;
+        public int? FournisseurId { get; set; }
         public string? Subject { get; set; }
         public string? Message { get; set; }
         public bool MarkAsSentToCompany { get; set; }

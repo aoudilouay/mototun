@@ -12,7 +12,7 @@ public sealed class ResendOptions
     public string BaseUrl { get; set; } = DefaultBaseUrl;
     public string ApiKey { get; set; } = string.Empty;
     public string SenderEmail { get; set; } = string.Empty;
-    public string SenderName { get; set; } = "Mototun";
+    public string SenderName { get; set; } = "Tunimoto";
     public bool AllowDevelopmentFallback { get; set; } = true;
 
     public bool HasConfiguredApiKey()

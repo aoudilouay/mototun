@@ -465,6 +465,8 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     open: false,
     invoiceId: null,
     dossierId: '',
+    fournisseurId: '',
+    fournisseurName: '',
     to: '',
     subject: '',
     message: '',
@@ -935,19 +937,120 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     }
   };
 
-  const openEmailModal = (dossier) => {
+  const resolveEmailFournisseur = useCallback((dossier, fournisseurs) => {
+    const available = Array.isArray(fournisseurs) ? fournisseurs : [];
+    const assignedId = Number(dossier?.assignedFournisseurId);
+
+    if (Number.isInteger(assignedId) && assignedId > 0) {
+      const matched = available.find((item) => Number(item.profileId) === assignedId);
+      if (matched) {
+        return matched;
+      }
+    }
+
+    if (dossier?.assignedFournisseurEmail || dossier?.assignedFournisseurName) {
+      return {
+        profileId: Number.isInteger(assignedId) && assignedId > 0 ? assignedId : null,
+        businessName: dossier.assignedFournisseurName || tr('Fournisseur', 'المزوّد'),
+        email: dossier.assignedFournisseurEmail || '',
+        city: ''
+      };
+    }
+
+    if (available.length === 1) {
+      return available[0];
+    }
+
+    return null;
+  }, [tr]);
+
+  const buildFournisseurEmailSubject = useCallback((dossier, fournisseurName) => {
+    const reference = dossier?.id || dossier?.invoiceNumber || tr('Dossier carte grise', 'ملف البطاقة الرمادية');
+    const suffix = fournisseurName ? ` - ${fournisseurName}` : '';
+    return `Tunimoto | ${reference}${suffix}`;
+  }, [tr]);
+
+  const buildFournisseurEmailNote = useCallback((dossier, fournisseurName) => {
+    if (isArabic) {
+      return [
+        `مرحباً ${fournisseurName || 'فريق المزوّد'},`,
+        '',
+        `هذا الملف تم إرساله إليكم عبر Tunimoto من طرف ${dossier.revendeurName || 'البائع'}.`,
+        'يرجى تأكيد الاستلام وإبلاغنا سريعاً إذا كانت هناك وثائق ناقصة أو ملاحظات إضافية.'
+      ].join('\n');
+    }
+
+    return [
+      `Bonjour ${fournisseurName || 'equipe fournisseur'},`,
+      '',
+      `Ce dossier vous est transmis via Tunimoto par le revendeur ${dossier.revendeurName || 'revendeur'}.`,
+      'Merci de confirmer la bonne reception et de nous signaler rapidement tout document manquant ou toute remarque utile.'
+    ].join('\n');
+  }, [isArabic]);
+
+  const openEmailModal = async (dossier) => {
+    const fournisseurs = hasLoadedFournisseurs ? connectedFournisseurs : await loadConnectedFournisseurs();
+    const selectedFournisseur = resolveEmailFournisseur(dossier, fournisseurs);
+    const fournisseurId = selectedFournisseur?.profileId ? String(selectedFournisseur.profileId) : '';
+    const fournisseurName = selectedFournisseur?.businessName || dossier.assignedFournisseurName || '';
+    const destinationEmail = selectedFournisseur?.email || dossier.assignedFournisseurEmail || '';
+    const nextSubject = buildFournisseurEmailSubject(dossier, fournisseurName);
+    const nextMessage = buildFournisseurEmailNote(dossier, fournisseurName);
+
     setEmailModal({
       open: true,
       invoiceId: dossier.invoiceId,
       dossierId: dossier.id,
-      to: dossier.clientEmail || '',
-      subject: isArabic ? `ملف البطاقة الرمادية - ${dossier.id}` : `Dossier carte grise - ${dossier.id}`,
-      message: isArabic
-        ? `مرحبا ${dossier.clientName},\n\nملفك قيد المعالجة.\nشكرا.`
-        : `Bonjour ${dossier.clientName},\n\nVotre dossier est en cours de traitement.\nMerci.`,
+      fournisseurId,
+      fournisseurName,
+      to: destinationEmail,
+      subject: nextSubject,
+      message: nextMessage,
       markAsSentToCompany: false
     });
   };
+
+  useEffect(() => {
+    if (!emailModal.open || !emailModal.invoiceId) {
+      return;
+    }
+
+    const dossier = dossiers.find((item) => item.invoiceId === emailModal.invoiceId);
+    if (!dossier) {
+      return;
+    }
+
+    const fournisseurName = emailModal.fournisseurName || dossier.assignedFournisseurName || '';
+    const nextSubject = buildFournisseurEmailSubject(dossier, fournisseurName);
+    const nextMessage = buildFournisseurEmailNote(dossier, fournisseurName);
+    const nextRecipient = emailModal.to || dossier.assignedFournisseurEmail || '';
+
+    if (
+      emailModal.subject === nextSubject
+      && emailModal.message === nextMessage
+      && emailModal.to === nextRecipient
+    ) {
+      return;
+    }
+
+    setEmailModal((prev) => ({
+      ...prev,
+      fournisseurName,
+      to: nextRecipient,
+      subject: nextSubject,
+      message: nextMessage,
+    }));
+  }, [
+    buildFournisseurEmailNote,
+    buildFournisseurEmailSubject,
+    dossiers,
+    emailModal.fournisseurName,
+    emailModal.invoiceId,
+    emailModal.message,
+    emailModal.open,
+    emailModal.subject,
+    emailModal.to,
+  ]);
 
   const closeEmailModal = () => {
     setEmailModal((prev) => ({ ...prev, open: false }));
@@ -979,7 +1082,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
   const handleSendEmail = async () => {
     if (!emailModal.invoiceId) return;
     if (!emailModal.to.trim()) {
-      toast.error(tr('Email destinataire requis.', 'بريد المستلم مطلوب.'));
+      toast.error(tr('Email fournisseur requis.', 'بريد المزوّد مطلوب.'));
       return;
     }
 
@@ -987,17 +1090,18 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
     try {
       setActiveAction(key);
       await api.post(`/Invoices/${emailModal.invoiceId}/carte-grise/send-email`, {
+        fournisseurId: emailModal.fournisseurId ? Number(emailModal.fournisseurId) : null,
         to: emailModal.to.trim(),
         subject: emailModal.subject.trim(),
         message: emailModal.message,
         markAsSentToCompany: emailModal.markAsSentToCompany
       });
 
-      toast.success(tr('Email envoye avec succes.', 'تم إرسال البريد بنجاح.'));
+      toast.success(tr('Email fournisseur envoye avec succes.', 'تم إرسال بريد المزوّد بنجاح.'));
       closeEmailModal();
       await loadDossiers(emailModal.invoiceId);
     } catch (error) {
-      toast.error(getApiErrorMessage(error, tr("Impossible d'envoyer l'email.", 'تعذر إرسال البريد الإلكتروني.')));
+      toast.error(getApiErrorMessage(error, tr("Impossible d'envoyer l'email au fournisseur.", 'تعذر إرسال البريد إلى المزوّد.')));
     } finally {
       setActiveAction('');
     }
@@ -1912,7 +2016,7 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
                   onClick={() => openEmailModal(openDossier)}
                   className="rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 text-sm font-bold text-white hover:from-blue-700 hover:to-indigo-700"
                 >
-                  {tr('Envoyer par mail', 'إرسال عبر البريد')}
+                  {tr('Envoyer au fournisseur', 'إرسال إلى المزوّد')}
                 </button>
                 <button
                   onClick={() => openSendToFournisseur(openDossier)}
@@ -1929,8 +2033,8 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
                   {activeAction === `delete-${openDossier.invoiceId}` ? tr('Suppression...', 'جار الحذف...') : tr('Supprimer dossier', 'حذف الملف')}
                 </button>
               </div>
-              {!openDossier.clientEmail && (
-                <p className="mt-2 text-xs text-slate-600">{tr("Email client manquant. Vous pouvez le saisir manuellement dans la fenetre d'envoi.", 'بريد الحريف غير موجود. يمكنك إدخاله يدويًا في نافذة الإرسال.')}</p>
+              {!openDossier.assignedFournisseurEmail && (
+                <p className="mt-2 text-xs text-slate-600">{tr("Email fournisseur manquant. Vous pouvez le saisir manuellement dans la fenetre d'envoi.", 'بريد المزوّد غير موجود. يمكنك إدخاله يدويًا في نافذة الإرسال.')}</p>
               )}
               {hasLoadedFournisseurs && connectedFournisseurs.length === 0 && (
                 <p className="mt-2 text-xs text-amber-700">{tr('Aucun fournisseur connecte. Acceptez un partenariat avant envoi.', 'لا يوجد مزوّد متصل. اقبل شراكة قبل الإرسال.')}</p>
@@ -2043,12 +2147,41 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
           <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white shadow-2xl" onClick={(event) => event.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-3">
               <div>
-                <p className="text-sm font-bold text-slate-900">{tr('Envoyer Email Dossier', 'إرسال بريد للملف')}</p>
+                <p className="text-sm font-bold text-slate-900">{tr('Envoyer un email au fournisseur', 'إرسال بريد إلى المزوّد')}</p>
                 <p className="text-xs text-slate-500">{emailModal.dossierId}</p>
               </div>
               <button onClick={closeEmailModal} className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">{tr('Fermer', 'إغلاق')}</button>
             </div>
             <div className="space-y-3 p-4">
+              {connectedFournisseurs.length > 0 && (
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">{tr('Fournisseur', 'المزوّد')}</label>
+                  <select
+                    value={emailModal.fournisseurId}
+                    onChange={(event) => {
+                      const nextId = event.target.value;
+                      const selected = connectedFournisseurs.find((item) => String(item.profileId) === nextId) || null;
+                      const dossierForEmail = openDossier || dossiers.find((item) => item.invoiceId === emailModal.invoiceId) || null;
+                      setEmailModal((prev) => ({
+                        ...prev,
+                        fournisseurId: nextId,
+                        fournisseurName: selected?.businessName || '',
+                        to: selected?.email || '',
+                        subject: dossierForEmail ? buildFournisseurEmailSubject(dossierForEmail, selected?.businessName || '') : prev.subject,
+                        message: dossierForEmail ? buildFournisseurEmailNote(dossierForEmail, selected?.businessName || '') : prev.message
+                      }));
+                    }}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                  >
+                    <option value="">{tr('Selectionner un fournisseur', 'اختر مزوّداً')}</option>
+                    {connectedFournisseurs.map((item) => (
+                      <option key={`email-fournisseur-${item.profileId}`} value={String(item.profileId)}>
+                        {item.businessName}{item.email ? ` - ${item.email}` : tr(' - email manquant', ' - لا يوجد بريد')}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">{tr('Destinataire', 'المستلم')}</label>
                 <input
@@ -2058,6 +2191,9 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
                   placeholder={tr('email@exemple.com', 'email@example.com')}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 />
+                <p className="mt-1 text-xs text-slate-500">
+                  {tr('Utilisez ici l email du fournisseur qui doit recevoir le dossier.', 'استخدم هنا بريد المزوّد الذي يجب أن يستلم الملف.')}
+                </p>
               </div>
               <div>
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">{tr('Sujet', 'الموضوع')}</label>
@@ -2069,20 +2205,23 @@ function CarteGrisePage({ initialViewMode = 'active' }) {
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">{tr('Message', 'الرسالة')}</label>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">{tr('Note complementaire', 'ملاحظة إضافية')}</label>
                 <textarea
                   rows={5}
                   value={emailModal.message}
                   onChange={(event) => setEmailModal((prev) => ({ ...prev, message: event.target.value }))}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                 />
+                <p className="mt-1 text-xs text-slate-500">
+                  {tr('Le recapitulatif du dossier, les documents et le bouton d acces seront ajoutes automatiquement.', 'سيتم إضافة ملخص الملف والوثائق وزر الدخول تلقائياً.')}
+                </p>
               </div>
               <button
                 onClick={handleSendEmail}
                 disabled={activeAction === `send-email-${emailModal.invoiceId}`}
                 className="w-full rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-blue-700 disabled:opacity-60"
               >
-                {activeAction === `send-email-${emailModal.invoiceId}` ? tr('Envoi...', 'جار الإرسال...') : tr('Envoyer email', 'إرسال البريد')}
+                {activeAction === `send-email-${emailModal.invoiceId}` ? tr('Envoi...', 'جار الإرسال...') : tr('Envoyer au fournisseur', 'إرسال إلى المزوّد')}
               </button>
             </div>
           </div>
