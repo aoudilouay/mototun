@@ -679,7 +679,8 @@ function RevendeurLayout() {
       </aside>
 
       <div className={`min-h-screen flex-1 bg-gradient-to-br from-slate-50 via-[#f8fbff] to-cyan-50/45 transition-all duration-300 ${contentOffset}`}>
-        <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/85 px-4 py-3 backdrop-blur-xl sm:px-6">
+        <header className="sticky top-0 z-30 px-4 py-3 sm:px-6 sm:py-4">
+          <div className="mx-auto w-full max-w-[1500px] rounded-[30px] border border-white/75 bg-white/78 px-3 py-3 shadow-[0_24px_54px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:px-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
             <div className="flex w-full min-w-0 items-start gap-2 sm:items-center">
               <button
@@ -687,7 +688,7 @@ function RevendeurLayout() {
                   if (isSidebarCollapsed) setIsSidebarCollapsed(false);
                   setIsMobileSidebarOpen(true);
                 }}
-                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-600 shadow-sm transition-colors hover:bg-slate-50 lg:hidden"
+                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/80 bg-white/90 text-slate-600 shadow-[0_12px_30px_rgba(15,23,42,0.10)] transition-all hover:-translate-y-0.5 hover:bg-white lg:hidden"
                 title="open-sidebar"
               >
                 <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -710,7 +711,7 @@ function RevendeurLayout() {
             <div className={`flex w-full items-center justify-between gap-2 sm:ml-auto sm:w-auto sm:justify-end sm:gap-3 ${isArabic ? 'pr-0.5 sm:pr-1' : 'pl-0.5 sm:pl-1'}`}>
               <Link
                 to="/revendeur/support"
-                className="hidden h-9 w-9 items-center justify-center rounded-xl border border-cyan-200 bg-cyan-50 text-cyan-700 transition-colors hover:bg-cyan-100 sm:inline-flex"
+                className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-cyan-200/80 bg-gradient-to-br from-cyan-50 to-white text-cyan-700 shadow-[0_12px_24px_rgba(6,182,212,0.12)] transition-all hover:-translate-y-0.5 hover:from-cyan-100 hover:to-cyan-50 sm:inline-flex"
                 title="Support"
                 aria-label="Support"
               >
@@ -729,7 +730,7 @@ function RevendeurLayout() {
               <div className="relative">
                 <button
                   onClick={() => setShowUserMenu((prev) => !prev)}
-                  className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1.5 shadow-sm transition-colors hover:bg-slate-50"
+                  className="flex items-center gap-2 rounded-2xl border border-white/80 bg-white/90 px-2.5 py-2 shadow-[0_12px_28px_rgba(15,23,42,0.10)] transition-all hover:-translate-y-0.5 hover:bg-white"
                 >
                   <div className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 text-xs font-bold text-white">
                     {canRenderAvatarImage ? (
@@ -770,6 +771,7 @@ function RevendeurLayout() {
                 )}
               </div>
             </div>
+          </div>
           </div>
         </header>
 
