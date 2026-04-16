@@ -4698,6 +4698,13 @@ public class InvoicesController : ControllerBase
             hasDeclaration
         };
         var receivedCount = documentStatuses.Count(status => status);
+        var missingCount = documentStatuses.Length - receivedCount;
+        var documentSummaryText = missingCount switch
+        {
+            0 => "Dossier complet pour demarrer rapidement",
+            1 => "Une piece reste a confirmer",
+            _ => $"{missingCount} pieces restent a completer"
+        };
 
         var rows = new StringBuilder();
         rows.AppendLine(BuildDocumentRow("CIN (recto)", hasCinFront || hasLegacyCin));
@@ -4710,6 +4717,10 @@ public class InvoicesController : ControllerBase
             : !string.IsNullOrWhiteSpace(invoice.Revendeur?.User?.FullName)
                 ? invoice.Revendeur.User.FullName.Trim()
                 : "revendeur partenaire";
+
+        var revendeurTaxId = string.IsNullOrWhiteSpace(invoice.Revendeur?.TaxId)
+            ? "Non renseigne"
+            : invoice.Revendeur.TaxId.Trim();
 
         var safeFournisseurName = string.IsNullOrWhiteSpace(fournisseurName)
             ? "partenaire"
@@ -4734,9 +4745,9 @@ public class InvoicesController : ControllerBase
         var safeCustom = string.IsNullOrWhiteSpace(customMessage)
             ? string.Empty
             : $"""
-          <div style="margin-top:18px;border-radius:14px;border:1px solid #dbeafe;background:#eff6ff;padding:16px 18px;">
+          <div style="margin-top:18px;border-radius:16px;border:1px solid #bfdbfe;background:linear-gradient(180deg,#f8fbff 0%,#eef6ff 100%);padding:16px 18px;">
             <div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;">Note du revendeur</div>
-            <p style="margin:10px 0 0 0;color:#1e293b;line-height:1.7;">{System.Net.WebUtility.HtmlEncode(customMessage).Replace("\n", "<br/>")}</p>
+            <p style="margin:10px 0 0 0;color:#1e293b;line-height:1.8;">{System.Net.WebUtility.HtmlEncode(customMessage).Replace("\n", "<br/>")}</p>
           </div>
 """;
 
@@ -4744,7 +4755,7 @@ public class InvoicesController : ControllerBase
             ? string.Empty
             : $"""
           <div style="margin-top:24px;">
-            <a href="{System.Net.WebUtility.HtmlEncode(dossierUrl)}" style="display:inline-block;border-radius:999px;background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:14px 24px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">
+            <a href="{System.Net.WebUtility.HtmlEncode(dossierUrl)}" style="display:inline-block;border-radius:999px;background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:14px 26px;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;box-shadow:0 12px 24px rgba(37,99,235,0.28);">
               Acceder au dossier
             </a>
           </div>
@@ -4753,50 +4764,89 @@ public class InvoicesController : ControllerBase
         return $"""
 <!doctype html>
 <html lang="fr">
-  <body style="margin:0;padding:24px;background:#eaf1fb;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #dbeafe;border-radius:22px;overflow:hidden;box-shadow:0 18px 40px rgba(37,99,235,0.10);">
+  <body style="margin:0;padding:24px;background:linear-gradient(180deg,#eef4ff 0%,#f8fbff 100%);font-family:Arial,Helvetica,sans-serif;color:#0f172a;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:760px;margin:0 auto;background:#ffffff;border:1px solid #dbeafe;border-radius:26px;overflow:hidden;box-shadow:0 24px 60px rgba(15,23,42,0.10);">
       <tr>
         <td style="padding:0;">
-          <div style="background:linear-gradient(135deg,#0f172a 0%,#1d4ed8 55%,#38bdf8 100%);padding:26px 28px;color:#ffffff;">
-            <div style="font-size:12px;letter-spacing:1.8px;text-transform:uppercase;opacity:.88;">Tunimoto</div>
-            <div style="margin-top:10px;font-size:24px;font-weight:700;line-height:1.3;">Nouveau dossier carte grise a traiter</div>
-            <div style="margin-top:8px;font-size:14px;line-height:1.7;opacity:.92;">
-              Ce dossier vous a ete transmis par le revendeur {System.Net.WebUtility.HtmlEncode(revendeurName)} via la plateforme Tunimoto.
+          <div style="background:
+            radial-gradient(circle at top left, rgba(125,211,252,0.32), transparent 32%),
+            radial-gradient(circle at bottom right, rgba(59,130,246,0.24), transparent 28%),
+            linear-gradient(135deg,#020617 0%,#0f172a 28%,#1d4ed8 66%,#38bdf8 100%);
+            padding:30px 30px 28px;color:#ffffff;">
+            <div style="display:inline-block;border-radius:999px;background:rgba(255,255,255,0.14);padding:7px 12px;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;">
+              Tunimoto | Flux fournisseur
             </div>
+            <div style="margin-top:14px;font-size:28px;font-weight:700;line-height:1.2;">Un nouveau dossier est pret pour votre traitement</div>
+            <div style="margin-top:10px;max-width:620px;font-size:15px;line-height:1.8;opacity:.94;">
+              Ce dossier vous a ete transmis par le revendeur {System.Net.WebUtility.HtmlEncode(revendeurName)} via Tunimoto, la plateforme qui centralise les dossiers, accelere les validations et fluidifie le suivi entre revendeurs et fournisseurs.
+            </div>
+            <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:18px;">
+              <tr>
+                <td style="padding:0 10px 10px 0;">
+                  <div style="border-radius:999px;background:rgba(255,255,255,0.12);padding:10px 14px;font-size:12px;font-weight:700;">Reference {System.Net.WebUtility.HtmlEncode(reference)}</div>
+                </td>
+                <td style="padding:0 10px 10px 0;">
+                  <div style="border-radius:999px;background:rgba(255,255,255,0.12);padding:10px 14px;font-size:12px;font-weight:700;">{receivedCount}/4 documents recus</div>
+                </td>
+                <td style="padding:0 0 10px 0;">
+                  <div style="border-radius:999px;background:rgba(255,255,255,0.12);padding:10px 14px;font-size:12px;font-weight:700;">Suivi partage en temps reel</div>
+                </td>
+              </tr>
+            </table>
           </div>
         </td>
       </tr>
       <tr>
-        <td style="padding:28px;">
-          <p style="margin:0;color:#334155;line-height:1.7;">Bonjour {System.Net.WebUtility.HtmlEncode(safeFournisseurName)},</p>
-          <p style="margin:14px 0 0 0;color:#334155;line-height:1.8;">
-            Vous avez recu un nouveau dossier carte grise via Tunimoto. La plateforme vous aide a centraliser les dossiers, accelerer le traitement et mieux suivre les échanges entre revendeurs et fournisseurs.
+        <td style="padding:30px;">
+          <p style="margin:0;color:#334155;line-height:1.8;font-size:15px;">Bonjour {System.Net.WebUtility.HtmlEncode(safeFournisseurName)},</p>
+          <p style="margin:14px 0 0 0;color:#334155;line-height:1.9;font-size:15px;">
+            Vous avez recu un nouveau dossier carte grise via Tunimoto. Tout est pense pour que vous puissiez comprendre la situation rapidement, verifier les pieces recues et avancer sans perdre de temps entre plusieurs canaux.
           </p>
 
-          <div style="margin-top:20px;border-radius:18px;border:1px solid #dbeafe;background:linear-gradient(180deg,#f8fbff 0%,#eef6ff 100%);padding:18px 20px;">
-            <div style="display:inline-block;border-radius:999px;background:#dbeafe;padding:6px 12px;color:#1d4ed8;font-size:12px;font-weight:700;letter-spacing:.4px;">Reference dossier</div>
-            <div style="margin-top:10px;font-size:24px;font-weight:700;color:#0f172a;">{System.Net.WebUtility.HtmlEncode(reference)}</div>
-            <div style="margin-top:8px;color:#475569;font-size:14px;line-height:1.7;">
-              Client: <strong style="color:#0f172a;">{System.Net.WebUtility.HtmlEncode(clientName)}</strong><br/>
-              Moto / vehicule: <strong style="color:#0f172a;">{System.Net.WebUtility.HtmlEncode(vehicleInfo)}</strong><br/>
-              Chassis: <strong style="color:#0f172a;">{System.Net.WebUtility.HtmlEncode(chassis)}</strong><br/>
-              Montant: <strong style="color:#0f172a;">{System.Net.WebUtility.HtmlEncode(amountText)}</strong>
-            </div>
-          </div>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:22px;border-collapse:separate;border-spacing:0;">
+            <tr>
+              <td valign="top" style="width:62%;padding-right:10px;">
+                <div style="height:100%;border-radius:22px;border:1px solid #dbeafe;background:linear-gradient(180deg,#f8fbff 0%,#eef6ff 100%);padding:20px 22px;">
+                  <div style="display:inline-block;border-radius:999px;background:#dbeafe;padding:6px 12px;color:#1d4ed8;font-size:12px;font-weight:700;letter-spacing:.4px;">Dossier a traiter</div>
+                  <div style="margin-top:12px;font-size:28px;font-weight:700;color:#0f172a;">{System.Net.WebUtility.HtmlEncode(reference)}</div>
+                  <div style="margin-top:14px;color:#475569;font-size:14px;line-height:1.9;">
+                    Client: <strong style="color:#0f172a;">{System.Net.WebUtility.HtmlEncode(clientName)}</strong><br/>
+                    Moto / vehicule: <strong style="color:#0f172a;">{System.Net.WebUtility.HtmlEncode(vehicleInfo)}</strong><br/>
+                    Chassis: <strong style="color:#0f172a;">{System.Net.WebUtility.HtmlEncode(chassis)}</strong><br/>
+                    Montant: <strong style="color:#0f172a;">{System.Net.WebUtility.HtmlEncode(amountText)}</strong>
+                  </div>
+                </div>
+              </td>
+              <td valign="top" style="width:38%;padding-left:10px;">
+                <div style="border-radius:22px;border:1px solid #e2e8f0;background:#ffffff;padding:18px 18px 16px;box-shadow:0 10px 26px rgba(15,23,42,0.04);">
+                  <div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#64748b;">Revendeur emetteur</div>
+                  <div style="margin-top:12px;border-radius:18px;background:#f8fafc;padding:14px 14px 12px;">
+                    <div style="font-size:17px;font-weight:700;color:#0f172a;">{System.Net.WebUtility.HtmlEncode(revendeurName)}</div>
+                    <div style="margin-top:6px;font-size:13px;line-height:1.7;color:#64748b;">Matricule fiscal: <strong style="color:#0f172a;">{System.Net.WebUtility.HtmlEncode(revendeurTaxId)}</strong></div>
+                  </div>
+                  <div style="margin-top:12px;border-radius:18px;background:#ecfeff;padding:14px 14px 12px;">
+                    <div style="font-size:12px;color:#0f766e;font-weight:700;text-transform:uppercase;letter-spacing:.7px;">Lecture rapide</div>
+                    <div style="margin-top:6px;font-size:26px;font-weight:700;color:#0f172a;">{receivedCount}/4</div>
+                    <div style="margin-top:4px;font-size:13px;line-height:1.6;color:#0f766e;">{System.Net.WebUtility.HtmlEncode(documentSummaryText)}</div>
+                  </div>
+                </div>
+              </td>
+            </tr>
+          </table>
 
           {safeCustom}
 
-          <div style="margin-top:22px;border-radius:18px;border:1px solid #e2e8f0;background:#ffffff;padding:18px 20px;">
+          <div style="margin-top:22px;border-radius:22px;border:1px solid #e2e8f0;background:#ffffff;padding:20px 22px;">
             <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-              <h3 style="margin:0;color:#0f172a;font-size:17px;">Etat des documents recus</h3>
+              <h3 style="margin:0;color:#0f172a;font-size:18px;">Etat des documents recus</h3>
               <div style="border-radius:999px;background:#ecfeff;padding:8px 12px;color:#0f766e;font-size:12px;font-weight:700;">
                 {receivedCount}/4 documents recus
               </div>
             </div>
-            <p style="margin:10px 0 16px 0;color:#64748b;font-size:13px;line-height:1.7;">
-              Les pieces les plus recentes sont jointes a cet email pour vous faire gagner du temps au demarrage du traitement.
+            <p style="margin:10px 0 16px 0;color:#64748b;font-size:13px;line-height:1.8;">
+              Les pieces les plus recentes sont jointes a cet email pour que votre equipe puisse verifier et avancer des maintenant.
             </p>
-            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden;">
               <tr style="background:#f8fafc;">
                 <th align="left" style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:12px;text-transform:uppercase;letter-spacing:.7px;">Document</th>
                 <th align="left" style="padding:10px 12px;border-bottom:1px solid #e2e8f0;color:#334155;font-size:12px;text-transform:uppercase;letter-spacing:.7px;">Statut</th>
@@ -4805,15 +4855,41 @@ public class InvoicesController : ControllerBase
             </table>
           </div>
 
+          <div style="margin-top:22px;border-radius:22px;border:1px solid #dbeafe;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);padding:22px 22px 20px;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#1d4ed8;">Pourquoi Tunimoto marque la difference</div>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:14px;border-collapse:separate;border-spacing:0 10px;">
+              <tr>
+                <td style="width:33.33%;padding-right:8px;" valign="top">
+                  <div style="height:100%;border-radius:18px;border:1px solid #e2e8f0;background:#ffffff;padding:16px;">
+                    <div style="font-size:14px;font-weight:700;color:#0f172a;">Centralisation propre</div>
+                    <div style="margin-top:8px;font-size:13px;line-height:1.75;color:#64748b;">Chaque dossier arrive avec ses infos essentielles, ses pieces et un contexte clair dans un seul flux.</div>
+                  </div>
+                </td>
+                <td style="width:33.33%;padding:0 4px;" valign="top">
+                  <div style="height:100%;border-radius:18px;border:1px solid #e2e8f0;background:#ffffff;padding:16px;">
+                    <div style="font-size:14px;font-weight:700;color:#0f172a;">Traitement plus rapide</div>
+                    <div style="margin-top:8px;font-size:13px;line-height:1.75;color:#64748b;">Moins d allers-retours, moins de perte de temps, plus de visibilite pour savoir quoi verifier en premier.</div>
+                  </div>
+                </td>
+                <td style="width:33.33%;padding-left:8px;" valign="top">
+                  <div style="height:100%;border-radius:18px;border:1px solid #e2e8f0;background:#ffffff;padding:16px;">
+                    <div style="font-size:14px;font-weight:700;color:#0f172a;">Suivi partage</div>
+                    <div style="margin-top:8px;font-size:13px;line-height:1.75;color:#64748b;">Revendeur et fournisseur avancent avec la meme lecture du dossier et un meilleur niveau de pilotage.</div>
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </div>
+
           {ctaHtml}
 
-          <p style="margin:24px 0 0 0;color:#475569;line-height:1.8;">
-            Si un document manque ou si une verification supplementaire est necessaire, vous pouvez revenir vers le revendeur directement depuis votre espace fournisseur Tunimoto.
+          <p style="margin:24px 0 0 0;color:#475569;line-height:1.9;font-size:14px;">
+            Si une piece manque ou si une verification supplementaire est necessaire, vous pouvez revenir vers le revendeur directement depuis votre espace fournisseur Tunimoto.
           </p>
 
           <p style="margin:24px 0 0 0;padding-top:18px;border-top:1px solid #e2e8f0;color:#64748b;font-size:12px;line-height:1.8;">
             Cet email a ete envoye automatiquement via Tunimoto par le revendeur {System.Net.WebUtility.HtmlEncode(revendeurName)}.<br/>
-            Merci de ne pas repondre directement a cet email systeme.
+            Tunimoto aide les reseaux de revendeurs et fournisseurs a centraliser les dossiers, accelerer le traitement et mieux suivre chaque etape.
           </p>
         </td>
       </tr>
