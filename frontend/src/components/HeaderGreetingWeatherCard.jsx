@@ -13,9 +13,11 @@ const THEME_STYLES = {
     glow: 'from-cyan-200/30 via-sky-200/10 to-transparent',
     iconWrap: 'bg-cyan-100 text-cyan-700 shadow-[0_12px_26px_rgba(6,182,212,0.16)]',
     statusPill: 'border-cyan-200/80 bg-cyan-50/90 text-cyan-700',
+    softPill: 'border-white/75 bg-white/82 text-slate-500',
     accent: 'text-cyan-700',
-    weatherCard: 'border-cyan-100/80 bg-white/80',
+    weatherCard: 'border-cyan-100/80 bg-white/84',
     weatherChip: 'bg-cyan-50/90 text-cyan-700',
+    metaCard: 'border-cyan-100/70 bg-white/82 text-slate-600',
     subtle: 'text-slate-500'
   },
   emerald: {
@@ -23,9 +25,11 @@ const THEME_STYLES = {
     glow: 'from-emerald-200/30 via-teal-200/10 to-transparent',
     iconWrap: 'bg-emerald-100 text-emerald-700 shadow-[0_12px_26px_rgba(16,185,129,0.16)]',
     statusPill: 'border-emerald-200/80 bg-emerald-50/90 text-emerald-700',
+    softPill: 'border-white/75 bg-white/82 text-slate-500',
     accent: 'text-emerald-700',
-    weatherCard: 'border-emerald-100/80 bg-white/80',
+    weatherCard: 'border-emerald-100/80 bg-white/84',
     weatherChip: 'bg-emerald-50/90 text-emerald-700',
+    metaCard: 'border-emerald-100/70 bg-white/82 text-slate-600',
     subtle: 'text-slate-500'
   }
 };
@@ -284,27 +288,62 @@ function HeaderGreetingWeatherCard({ displayName, city, isArabic = false, accent
 
   const weatherMeta = mapWeatherCode(weather.weatherCode, isArabic);
   const greetingName = String(displayName || '').trim() || (isArabic ? 'daif' : 'invite');
-  const statusLabel = isArabic ? 'Session active' : 'Session active';
+  const statusLabel = 'Session active';
   const todayLabel = isArabic ? 'Aujourd hui' : "Aujourd'hui";
 
   return (
     <div className={`relative w-full overflow-hidden rounded-[22px] border px-3 py-2.5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] backdrop-blur-xl sm:px-4 sm:py-3 ${theme.shell}`}>
-      <div className={`pointer-events-none absolute inset-y-0 right-0 w-24 bg-gradient-to-l ${theme.glow}`} />
+      <div className={`pointer-events-none absolute inset-y-0 right-0 w-28 bg-gradient-to-l ${theme.glow}`} />
       <div className="pointer-events-none absolute -left-6 top-2 h-16 w-16 rounded-full bg-white/25 blur-2xl" />
 
-      <div className="relative flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
+      <div className="relative flex flex-col gap-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-semibold ${theme.statusPill}`}>
               <span className={`h-2 w-2 rounded-full ${accent === 'emerald' ? 'bg-emerald-500' : 'bg-cyan-500'}`} />
               {statusLabel}
             </span>
-            <span className="inline-flex items-center rounded-full border border-white/70 bg-white/75 px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-sm">
+            <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold shadow-sm ${theme.softPill}`}>
               {todayLabel}
             </span>
           </div>
 
-          <div className="mt-2.5 flex min-w-0 items-center gap-2.5">
+          <div className={`flex min-w-0 items-center gap-2 rounded-[18px] border px-2.5 py-2 shadow-[0_8px_20px_rgba(15,23,42,0.04)] ${theme.weatherCard}`}>
+            <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[14px] ${theme.weatherChip}`}>
+              <WeatherGlyph kind={weatherMeta.kind} />
+            </div>
+
+            <div className="min-w-0 leading-tight">
+              {weather.loading ? (
+                <p className="text-[11px] font-semibold text-slate-500">Meteo...</p>
+              ) : weather.hasError ? (
+                <p className="text-[11px] font-semibold text-slate-500">Indisponible</p>
+              ) : (
+                <p className={`text-[14px] font-black ${theme.accent}`}>
+                  {weather.temperature !== null ? `${weather.temperature} deg` : '--'}
+                  {(weather.max !== null || weather.min !== null) && (
+                    <span className="ml-1 text-[10px] font-semibold text-slate-400">
+                      {`(${weather.max ?? '--'}/${weather.min ?? '--'})`}
+                    </span>
+                  )}
+                </p>
+              )}
+
+              <div className="flex items-center gap-1.5">
+                <p className="truncate text-[11px] font-semibold text-slate-700">
+                  {weather.locationName}
+                </p>
+                <span className="text-slate-300">•</span>
+                <p className={`truncate text-[10px] font-semibold uppercase tracking-[0.12em] ${theme.subtle}`}>
+                  {!weather.loading && !weather.hasError ? weatherMeta.label : 'Temps local'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-2.5">
             <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] ${theme.iconWrap}`}>
               <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
                 <path d="M12 3v4" />
@@ -324,41 +363,23 @@ function HeaderGreetingWeatherCard({ displayName, city, isArabic = false, accent
                 {`${greeting}, ${greetingName}`}
               </p>
               <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-medium sm:text-[12px]">
-                <span className={theme.accent}>{`${dateLabel}`}</span>
+                <span className={theme.accent}>{dateLabel}</span>
                 <span className="text-slate-300">•</span>
                 <span className="text-slate-500">{timeLabel}</span>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className={`flex min-w-0 items-center gap-2.5 rounded-[18px] border px-3 py-2 shadow-[0_8px_20px_rgba(15,23,42,0.04)] sm:min-w-[190px] sm:max-w-[220px] ${theme.weatherCard}`}>
-          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] ${theme.weatherChip}`}>
-            <WeatherGlyph kind={weatherMeta.kind} />
-          </div>
-
-          <div className="min-w-0 flex-1 leading-tight">
-            {weather.loading ? (
-              <p className="text-[11px] font-semibold text-slate-500">Meteo...</p>
-            ) : weather.hasError ? (
-              <p className="text-[11px] font-semibold text-slate-500">Indisponible</p>
-            ) : (
-              <p className={`text-[14px] font-black ${theme.accent}`}>
-                {weather.temperature !== null ? `${weather.temperature} deg` : '--'}
-                {(weather.max !== null || weather.min !== null) && (
-                  <span className="ml-1 text-[10px] font-semibold text-slate-400">
-                    {`(${weather.max ?? '--'}/${weather.min ?? '--'})`}
-                  </span>
-                )}
-              </p>
-            )}
-
-            <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-700">
-              {weather.locationName}
-            </p>
-            <p className={`truncate text-[10px] font-semibold uppercase tracking-[0.12em] ${theme.subtle}`}>
-              {!weather.loading && !weather.hasError ? weatherMeta.label : 'Temps local'}
-            </p>
+          <div className={`hidden items-center gap-2 rounded-[18px] border px-3 py-2 shadow-[0_8px_20px_rgba(15,23,42,0.04)] sm:flex ${theme.metaCard}`}>
+            <div className="flex min-w-0 flex-col leading-tight">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Ville</span>
+              <span className="truncate text-[12px] font-semibold text-slate-700">{weather.locationName}</span>
+            </div>
+            <div className="h-8 w-px bg-slate-200/80" />
+            <div className="flex min-w-0 flex-col leading-tight">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Heure</span>
+              <span className="text-[12px] font-semibold text-slate-700">{timeLabel}</span>
+            </div>
           </div>
         </div>
       </div>

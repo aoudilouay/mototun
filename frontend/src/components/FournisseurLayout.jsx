@@ -657,7 +657,7 @@ function FournisseurLayout() {
                 </svg>
               </button>
 
-              <div className="w-full min-w-0 flex-1 sm:max-w-[470px]">
+              <div className="w-full min-w-0 flex-1 sm:max-w-[680px] xl:max-w-[760px]">
                 <Suspense fallback={<HeaderGreetingSkeleton />}>
                   <HeaderGreetingWeatherCard
                     displayName={displayName}
