@@ -158,15 +158,15 @@ export function ChartPanelsSkeleton() {
 
 export function HeaderGreetingSkeleton() {
   return (
-    <div className="w-full rounded-[26px] border border-slate-200 bg-white/90 px-4 py-4 shadow-[0_18px_44px_rgba(15,23,42,0.08)]">
+    <div className="w-full rounded-[22px] border border-slate-200 bg-white/90 px-4 py-3 shadow-[0_14px_34px_rgba(15,23,42,0.06)]">
       <div className="flex items-center gap-2">
         <SkeletonBlock className="h-6 w-24 rounded-full" />
         <SkeletonBlock className="h-6 w-20 rounded-full" />
       </div>
-      <div className="mt-3 flex items-center gap-3">
-        <SkeletonBlock className="h-11 w-11 rounded-2xl" />
+      <div className="mt-2.5 flex items-center gap-3">
+        <SkeletonBlock className="h-10 w-10 rounded-[18px]" />
         <div className="min-w-0 flex-1">
-          <SkeletonBlock className="h-6 w-52" />
+          <SkeletonBlock className="h-5 w-48" />
           <SkeletonBlock className="mt-2 h-4 w-40" />
         </div>
       </div>

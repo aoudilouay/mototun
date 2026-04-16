@@ -288,13 +288,13 @@ function HeaderGreetingWeatherCard({ displayName, city, isArabic = false, accent
   const todayLabel = isArabic ? 'Aujourd hui' : "Aujourd'hui";
 
   return (
-    <div className={`relative w-full overflow-hidden rounded-[26px] border px-4 py-3 shadow-[0_18px_44px_rgba(15,23,42,0.08)] backdrop-blur-xl sm:px-5 sm:py-4 ${theme.shell}`}>
-      <div className={`pointer-events-none absolute inset-y-0 right-0 w-32 bg-gradient-to-l ${theme.glow}`} />
-      <div className="pointer-events-none absolute -left-8 top-3 h-20 w-20 rounded-full bg-white/30 blur-2xl" />
+    <div className={`relative w-full overflow-hidden rounded-[22px] border px-3 py-2.5 shadow-[0_14px_34px_rgba(15,23,42,0.06)] backdrop-blur-xl sm:px-4 sm:py-3 ${theme.shell}`}>
+      <div className={`pointer-events-none absolute inset-y-0 right-0 w-24 bg-gradient-to-l ${theme.glow}`} />
+      <div className="pointer-events-none absolute -left-6 top-2 h-16 w-16 rounded-full bg-white/25 blur-2xl" />
 
-      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="relative flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <span className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-semibold ${theme.statusPill}`}>
               <span className={`h-2 w-2 rounded-full ${accent === 'emerald' ? 'bg-emerald-500' : 'bg-cyan-500'}`} />
               {statusLabel}
@@ -304,9 +304,9 @@ function HeaderGreetingWeatherCard({ displayName, city, isArabic = false, accent
             </span>
           </div>
 
-          <div className="mt-3 flex min-w-0 items-center gap-3">
-            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${theme.iconWrap}`}>
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+          <div className="mt-2.5 flex min-w-0 items-center gap-2.5">
+            <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[18px] ${theme.iconWrap}`}>
+              <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
                 <path d="M12 3v4" />
                 <path d="M12 17v4" />
                 <path d="M4.9 4.9l2.8 2.8" />
@@ -320,10 +320,10 @@ function HeaderGreetingWeatherCard({ displayName, city, isArabic = false, accent
             </div>
 
             <div className="min-w-0">
-              <p className="truncate text-[17px] font-black leading-tight tracking-[-0.02em] text-slate-950 sm:text-[20px]">
+              <p className="truncate text-[16px] font-black leading-tight tracking-[-0.02em] text-slate-950 sm:text-[18px]">
                 {`${greeting}, ${greetingName}`}
               </p>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-medium sm:text-xs">
+              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] font-medium sm:text-[12px]">
                 <span className={theme.accent}>{`${dateLabel}`}</span>
                 <span className="text-slate-300">•</span>
                 <span className="text-slate-500">{timeLabel}</span>
@@ -332,8 +332,8 @@ function HeaderGreetingWeatherCard({ displayName, city, isArabic = false, accent
           </div>
         </div>
 
-        <div className={`flex min-w-0 items-center gap-3 rounded-[22px] border px-3 py-2.5 shadow-[0_10px_24px_rgba(15,23,42,0.05)] sm:min-w-[220px] sm:max-w-[250px] ${theme.weatherCard}`}>
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${theme.weatherChip}`}>
+        <div className={`flex min-w-0 items-center gap-2.5 rounded-[18px] border px-3 py-2 shadow-[0_8px_20px_rgba(15,23,42,0.04)] sm:min-w-[190px] sm:max-w-[220px] ${theme.weatherCard}`}>
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-[16px] ${theme.weatherChip}`}>
             <WeatherGlyph kind={weatherMeta.kind} />
           </div>
 
@@ -343,17 +343,17 @@ function HeaderGreetingWeatherCard({ displayName, city, isArabic = false, accent
             ) : weather.hasError ? (
               <p className="text-[11px] font-semibold text-slate-500">Indisponible</p>
             ) : (
-              <p className={`text-[15px] font-black ${theme.accent}`}>
+              <p className={`text-[14px] font-black ${theme.accent}`}>
                 {weather.temperature !== null ? `${weather.temperature} deg` : '--'}
                 {(weather.max !== null || weather.min !== null) && (
-                  <span className="ml-1 text-[11px] font-semibold text-slate-400">
+                  <span className="ml-1 text-[10px] font-semibold text-slate-400">
                     {`(${weather.max ?? '--'}/${weather.min ?? '--'})`}
                   </span>
                 )}
               </p>
             )}
 
-            <p className="mt-0.5 truncate text-[12px] font-semibold text-slate-700">
+            <p className="mt-0.5 truncate text-[11px] font-semibold text-slate-700">
               {weather.locationName}
             </p>
             <p className={`truncate text-[10px] font-semibold uppercase tracking-[0.12em] ${theme.subtle}`}>

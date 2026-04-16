@@ -640,8 +640,8 @@ function FournisseurLayout() {
       </aside>
 
       <div className={`min-h-screen flex-1 bg-gradient-to-br from-slate-50 via-[#f8fdfb] to-emerald-50/45 transition-all duration-300 ${contentOffset}`}>
-        <header className="sticky top-0 z-30 px-4 py-3 sm:px-6 sm:py-4">
-          <div className="rounded-[30px] border border-white/75 bg-white/78 px-3 py-3 shadow-[0_24px_54px_rgba(15,23,42,0.08)] backdrop-blur-2xl sm:px-4">
+        <header className="sticky top-0 z-30 px-4 py-2.5 sm:px-6 sm:py-3">
+          <div className="rounded-[24px] border border-white/75 bg-white/78 px-3 py-2.5 shadow-[0_18px_40px_rgba(15,23,42,0.07)] backdrop-blur-2xl sm:px-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
             <div className="flex w-full min-w-0 items-start gap-2 sm:items-center">
               <button
