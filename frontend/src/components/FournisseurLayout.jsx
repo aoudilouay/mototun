@@ -643,7 +643,7 @@ function FournisseurLayout() {
         <header className="sticky top-0 z-30 px-4 py-2.5 sm:px-6 sm:py-3">
           <div className="rounded-[24px] border border-white/75 bg-white/78 px-3 py-2.5 shadow-[0_18px_40px_rgba(15,23,42,0.07)] backdrop-blur-2xl sm:px-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-            <div className="flex w-full min-w-0 items-start gap-2 sm:items-center">
+            <div className="flex w-full min-w-0 items-center gap-2.5 sm:gap-3">
               <button
                 onClick={() => {
                   if (isSidebarCollapsed) setIsSidebarCollapsed(false);
@@ -669,7 +669,7 @@ function FournisseurLayout() {
               </div>
             </div>
 
-            <div className={`flex w-full items-center justify-between gap-2 sm:ml-auto sm:w-auto sm:justify-end sm:gap-3 ${isArabic ? 'pr-0.5 sm:pr-1' : 'pl-0.5 sm:pl-1'}`}>
+            <div className={`flex w-full items-center justify-end gap-2.5 sm:ml-auto sm:w-auto sm:gap-3 ${isArabic ? 'pr-0.5 sm:pr-1' : 'pl-0.5 sm:pl-1'}`}>
               <Link
                 to="/fournisseur/support"
                 className="hidden h-10 w-10 items-center justify-center rounded-2xl border border-emerald-200/80 bg-gradient-to-br from-emerald-50 to-white text-emerald-700 shadow-[0_12px_24px_rgba(16,185,129,0.12)] transition-all hover:-translate-y-0.5 hover:from-emerald-100 hover:to-emerald-50 sm:inline-flex"

@@ -170,6 +170,21 @@ function NotificationsCenter({ userType }) {
     });
   }, [filter, notifications]);
 
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isOpen]);
+
   const markAsRead = async (notificationId) => {
     const normalizedId = String(notificationId);
     setNotifications((prev) => prev.map((item) => (item.id === normalizedId ? { ...item, read: true } : item)));
@@ -245,77 +260,87 @@ function NotificationsCenter({ userType }) {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        className="relative rounded-lg p-2 transition-colors hover:bg-slate-100"
+        className="relative inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/80 bg-white/90 text-slate-600 shadow-[0_12px_28px_rgba(15,23,42,0.10)] transition-all hover:-translate-y-0.5 hover:bg-white"
+        aria-label={t('notifications.title')}
+        aria-expanded={isOpen}
       >
         <svg className="h-6 w-6 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
         </svg>
 
         {unreadCount > 0 && (
-          <span className="absolute right-0 top-0 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+          <span className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
       </button>
 
       {isOpen && (
-        <div className={`absolute z-50 mt-2 w-[min(24rem,calc(100vw-1rem))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl ${isArabic ? 'left-0' : 'right-0'}`}>
-          <div className="border-b border-slate-200 bg-slate-50 p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-slate-900">{t('notifications.title')}</h3>
-              <button
-                onClick={markAllAsRead}
-                className="text-sm font-semibold text-blue-600 hover:text-blue-700"
-              >
-                {t('notifications.markAllRead')}
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              {filterOptions.map((option) => (
+        <>
+          <button
+            type="button"
+            aria-label="close notifications overlay"
+            className="fixed inset-0 z-40 bg-slate-950/20 backdrop-blur-[1px] sm:hidden"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className={`fixed inset-x-3 top-[5.25rem] z-50 max-h-[min(75vh,42rem)] overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_28px_70px_rgba(15,23,42,0.20)] sm:absolute sm:inset-x-auto sm:top-auto sm:mt-2 sm:max-h-none sm:w-[min(24rem,calc(100vw-1rem))] ${isArabic ? 'sm:left-0' : 'sm:right-0'}`}>
+            <div className="border-b border-slate-200 bg-slate-50 p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-lg font-bold text-slate-900">{t('notifications.title')}</h3>
                 <button
-                  key={option.id}
-                  onClick={() => setFilter(option.id)}
-                  className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
-                    filter === option.id
-                      ? 'bg-blue-600 text-white'
-                      : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
-                  }`}
+                  onClick={markAllAsRead}
+                  className="text-sm font-semibold text-blue-600 hover:text-blue-700"
                 >
-                  {option.label}
+                  {t('notifications.markAllRead')}
                 </button>
-              ))}
-            </div>
-          </div>
+              </div>
 
-          <div className="max-h-96 overflow-y-auto">
-            {loading ? (
-              <div className="space-y-2 p-4">
-                {[1, 2, 3].map((item) => (
-                  <div key={item} className="h-14 animate-pulse rounded-lg bg-slate-100" />
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {filterOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    onClick={() => setFilter(option.id)}
+                    className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-all ${
+                      filter === option.id
+                        ? 'bg-blue-600 text-white'
+                        : 'border border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
                 ))}
               </div>
-            ) : filteredNotifications.length === 0 ? (
-              <div className="p-8 text-center">
-                <p className="text-sm font-medium text-slate-600">{t('notifications.noNotifications')}</p>
-                <p className="mt-1 text-xs text-slate-400">{t('notifications.upToDate')}</p>
-              </div>
-            ) : (
-              filteredNotifications.map((notification) => (
-                <NotificationItem
-                  key={notification.id}
-                  notification={notification}
-                  getColorClasses={getColorClasses}
-                  onMarkAsRead={markAsRead}
-                  onDismiss={dismissNotification}
-                  onClose={() => setIsOpen(false)}
-                  t={t}
-                  locale={locale}
-                />
-              ))
-            )}
+            </div>
+
+            <div className="max-h-[calc(min(75vh,42rem)-8rem)] overflow-y-auto sm:max-h-96">
+              {loading ? (
+                <div className="space-y-2 p-4">
+                  {[1, 2, 3].map((item) => (
+                    <div key={item} className="h-14 animate-pulse rounded-lg bg-slate-100" />
+                  ))}
+                </div>
+              ) : filteredNotifications.length === 0 ? (
+                <div className="p-8 text-center">
+                  <p className="text-sm font-medium text-slate-600">{t('notifications.noNotifications')}</p>
+                  <p className="mt-1 text-xs text-slate-400">{t('notifications.upToDate')}</p>
+                </div>
+              ) : (
+                filteredNotifications.map((notification) => (
+                  <NotificationItem
+                    key={notification.id}
+                    notification={notification}
+                    getColorClasses={getColorClasses}
+                    onMarkAsRead={markAsRead}
+                    onDismiss={dismissNotification}
+                    onClose={() => setIsOpen(false)}
+                    t={t}
+                    locale={locale}
+                  />
+                ))
+              )}
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
@@ -358,7 +383,7 @@ function NotificationItem({ notification, getColorClasses, onMarkAsRead, onDismi
       </div>
 
       {showActions && (
-        <div className="absolute right-2 top-2 flex items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-md">
+        <div className="absolute right-2 top-2 hidden items-center gap-1 rounded-lg border border-slate-200 bg-white p-1 shadow-md sm:flex">
           {!notification.read && (
             <button
               onClick={(event) => {
@@ -387,6 +412,29 @@ function NotificationItem({ notification, getColorClasses, onMarkAsRead, onDismi
           </button>
         </div>
       )}
+
+      <div className="mt-3 flex items-center justify-end gap-2 sm:hidden">
+        {!notification.read && (
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              onMarkAsRead(notification.id);
+            }}
+            className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 transition-colors hover:bg-blue-100"
+          >
+            {t('notifications.markRead')}
+          </button>
+        )}
+        <button
+          onClick={(event) => {
+            event.stopPropagation();
+            onDismiss(notification.id);
+          }}
+          className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-700 transition-colors hover:bg-rose-100"
+        >
+          {t('notifications.delete')}
+        </button>
+      </div>
     </div>
   );
 
